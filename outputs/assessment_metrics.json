@@ -1,0 +1,135 @@
+{
+  "dataset": {
+    "n_complete_runs": 12,
+    "n_windows_expanded": 431297,
+    "n_windows_6run": 137904,
+    "window_ms": 10,
+    "n_branches_vocab": 100,
+    "state_dist": {
+      "1": 407931,
+      "0": 15340,
+      "2": 8026
+    },
+    "sessions_dates": "March 2025 (12 sessions)"
+  },
+  "cross_modal_prediction": {
+    "mean_r2_all_features": 0.7358717023652229,
+    "mean_r2_physical_only": 0.748084777069019,
+    "mean_r2_syslog_only": -0.009638183437740979,
+    "frac_r2_above_03": 0.83,
+    "mean_cosine_sim": 0.999900575442011,
+    "n_physical_unique": 75,
+    "cv_method": "5-fold temporal block cross-validation"
+  },
+  "within_state_prediction": {
+    "within_balance_r2_6run": 0.5604,
+    "setpoint_accuracy_physical": 0.9734281868871371
+  },
+  "cross_run_generalization": {
+    "mean_micro_f1": 0.9247613906097949,
+    "std_micro_f1": 0.008375035916018682,
+    "mean_r2_physical_loro": 0.65276169483864,
+    "temporal_r2": 0.651055660191347,
+    "loro_ridge_r2": -0.1891231778057705,
+    "drift_per_run": 1.1280591364232957,
+    "stability_verdict": "unstable"
+  },
+  "anomaly_detection": {
+    "threshold_p95": 17.61463202200195,
+    "threshold_p99": 22.619904132767292,
+    "auc_trace_swap": 0.9999541652971038,
+    "auc_sensor_noise": 0.9988711150067565,
+    "auc_timing_10ms": 0.7007508856506337,
+    "auc_timing_50ms": 0.9546501223476133
+  },
+  "baselines": {
+    "state_mean_auc": 0.6268113919002212,
+    "ridge_auc": 0.5650309996011748,
+    "lag1_ar_r2": 0.6524902480912108,
+    "lag1_ar_auc": 0.9884457940536622,
+    "rf_auc": 0.9998955802907799,
+    "rf_r2_global": -12.877737540823018,
+    "note": "RF R\u00b2 negative in global 80/20 split due to distribution shift (temporal autocorrelation). Correct eval: temporal block CV \u2192 R\u00b2=0.736."
+  },
+  "false_positive_rate": {
+    "fpr_p95_pct": 5.152097458395272,
+    "fpr_p99_pct": 1.2109785722055038,
+    "fpr_p95_3win_pct": 1.0478227765490737,
+    "fpr_p99_3win_pct": 0.11602189913346145,
+    "pct_near_transitions": 0.0
+  },
+  "detection_latency": {
+    "trace_swap_p95_same_window_pct": 100.0,
+    "trace_swap_latency_ms": 0.0,
+    "sensor_corrupt_p99_same_pct": 89.2,
+    "timing_50ms_p99_same_pct": 63.2
+  },
+  "inference_cost": {
+    "full_pipeline_ms": 3.401667149970308,
+    "rf_single_window_ms": 3.313746379921213,
+    "feasible": "real_time",
+    "margin_x": 2.9
+  },
+  "limitations": {
+    "slow_drift_detectable_at_cm": 1.0,
+    "near_setpoint_swap_auc": 0.9532124999999999,
+    "logic_bug_no_physical_sig_auc": 0.529832
+  },
+  "llm_zero_shot": {
+    "model": "claude-haiku-4-5-20251001",
+    "n_examples": 250,
+    "detection_acc": 0.716,
+    "typing_acc": 0.292,
+    "localization_acc": 0.532,
+    "reasoning_score": 0.94,
+    "total_score": 0.62,
+    "per_type": {
+      "THRESHOLD_BUG": {
+        "mean_score": 0.44,
+        "n": 50
+      },
+      "TRACE_SWAP": {
+        "mean_score": 0.4766666666666666,
+        "n": 50
+      },
+      "NORMAL": {
+        "mean_score": 0.5316666666666666,
+        "n": 50
+      },
+      "STUCK_SENSOR": {
+        "mean_score": 0.8316666666666666,
+        "n": 50
+      },
+      "TIMING_DELAY": {
+        "mean_score": 0.8199999999999998,
+        "n": 50
+      }
+    }
+  },
+  "grpo_training": {
+    "job_id": 1873620,
+    "status": "PENDING \u2014 Nodes DOWN/reserved",
+    "scheduled": "2026-03-17",
+    "base_model": "Qwen2.5-Coder-7B-Instruct",
+    "algorithm": "GRPO (group_size=8, kl_coef=0.001)",
+    "infrastructure": "4\u00d7 A100, LoRA rank=16, VERL framework",
+    "n_train": 3000,
+    "n_eval": 250,
+    "reward_mean": 0.6142675257731959,
+    "reward_std": 0.22348312749583912,
+    "reward_assessment": "SUITABLE: Reward distribution appropriate for RL training"
+  },
+  "reward_function": {
+    "components": [
+      "detection (0.25)",
+      "typing (0.25)",
+      "localization (0.25)",
+      "reasoning (0.25)"
+    ],
+    "n_scored": 194,
+    "mean_reward": 0.6142675257731959,
+    "std_reward": 0.22348312749583912,
+    "frac_gt_0.5": 0.37628865979381443
+  },
+  "generated_at": "2026-03-11T22:39:48.623115"
+}

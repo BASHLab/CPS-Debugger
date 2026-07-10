@@ -1,0 +1,7 @@
+{
+  "n_functions": 113,
+  "n_basic_blocks": 1294,
+  "n_control_flow_edges": 1981,
+  "n_instructions": 22231,
+  "avg_insts_per_block": 17.2
+}

@@ -1,0 +1,14 @@
+{
+  "id": "bug_05_fsm_dispatch_swapped",
+  "file": "pend_mono/pend_monolithic.c",
+  "description": "FSM guard conditions swapped. SWINGUP code runs when LQR is enabled and vice versa, causing the wrong controller to run in each state.",
+  "category": "logic_fault",
+  "affected_function": "tick",
+  "affected_edges": [
+    "33:69:71",
+    "33:118:259",
+    "22:1209:1636"
+  ],
+  "difficulty": "medium",
+  "diff": "- if (flags.su_enable && !flags.lqr_enable)\n+ if (!flags.su_enable && flags.lqr_enable)"
+}

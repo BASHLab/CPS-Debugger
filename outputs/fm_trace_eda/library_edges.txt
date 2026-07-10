@@ -1,0 +1,365 @@
+# Library Edge Reference (316 edges)
+# Generated from 30 sessions
+# These account for ~92% of branch executions per tick
+# * = variable edge (std > 0.01)
+# ====================================================================================================
+
+## __clock_gettime (func_id=47, 1 edges)
+    47:43:62             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+
+## __fwritex (func_id=92, 6 edges)
+  * 92:12:35             | mean=  39.85 | std=  0.82 | CV= 0.02 | range=[36,43] | sessions=29/30
+  * 92:51:72             | mean=  39.77 | std=  1.03 | CV= 0.03 | range=[34,43] | sessions=29/30
+  * 92:87:192            | mean=  39.77 | std=  1.03 | CV= 0.03 | range=[34,43] | sessions=29/30
+  * 92:51:53             | mean=   1.02 | std=  0.14 | CV= 0.14 | range=[1,2] | sessions=29/30
+    92:64:84             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    92:64:107            | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+
+## __math_invalid (func_id=76, 3 edges)
+  * 76:29:252            | mean=   1.52 | std=  0.50 | CV= 0.33 | range=[1,2] | sessions=1/30
+  * 76:275:388           | mean=   1.52 | std=  0.50 | CV= 0.33 | range=[1,2] | sessions=1/30
+  * 76:29:31             | mean=   1.26 | std=  0.44 | CV= 0.35 | range=[1,2] | sessions=1/30
+
+## __stdio_close (func_id=82, 3 edges)
+    82:31:46             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    82:69:71             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    82:86:96             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+
+## __stdio_exit (func_id=90, 1 edges)
+  * 90:32:47             | mean=   2.06 | std=  0.25 | CV= 0.12 | range=[2,4] | sessions=1/30
+
+## __stdio_write (func_id=84, 3 edges)
+    84:92:94             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    84:107:109           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    84:145:298           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+
+## __towrite (func_id=91, 7 edges)
+  * 91:32:47             | mean=   2.04 | std=  0.21 | CV= 0.10 | range=[2,3] | sessions=29/30
+  * 91:12:35             | mean=  39.94 | std=  1.12 | CV= 0.03 | range=[36,45] | sessions=1/30
+  * 91:51:72             | mean=  39.61 | std=  1.41 | CV= 0.04 | range=[34,45] | sessions=1/30
+  * 91:87:192            | mean=  39.61 | std=  1.41 | CV= 0.04 | range=[34,45] | sessions=1/30
+  * 91:51:53             | mean=   1.05 | std=  0.22 | CV= 0.21 | range=[1,2] | sessions=1/30
+    91:64:106            | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    91:64:83             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+
+## __wasi_proc_exit (func_id=62, 2 edges)
+  * 62:8:10              | mean=   1.40 | std=  0.49 | CV= 0.35 | range=[1,2] | sessions=1/30
+  * 62:17:22             | mean=   1.40 | std=  0.49 | CV= 0.35 | range=[1,2] | sessions=1/30
+
+## fputs (func_id=100, 11 edges)
+  * 100:122:130          | mean=   3.02 | std=  0.14 | CV= 0.05 | range=[3,4] | sessions=1/30
+  * 100:148:150          | mean=   3.02 | std=  0.14 | CV= 0.05 | range=[3,4] | sessions=1/30
+  * 100:239:241          | mean=   2.06 | std=  0.25 | CV= 0.12 | range=[2,4] | sessions=1/30
+  * 100:174:176          | mean=   2.02 | std=  0.14 | CV= 0.07 | range=[2,3] | sessions=1/30
+  * 100:212:226          | mean=   2.02 | std=  0.14 | CV= 0.07 | range=[2,3] | sessions=1/30
+  * 100:285:287          | mean=   2.02 | std=  0.14 | CV= 0.07 | range=[2,3] | sessions=1/30
+  * 100:298:106          | mean=   2.02 | std=  0.14 | CV= 0.07 | range=[2,3] | sessions=1/30
+    100:174:214          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    100:285:350          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    100:224:241          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    100:224:226          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+
+## long_double_not_supported (func_id=105, 1 edges)
+  * 105:123:138          | mean=   2.02 | std=  0.14 | CV= 0.07 | range=[2,3] | sessions=1/30
+
+## memcpy (func_id=108, 46 edges)
+  * 108:12:14            | mean=  40.80 | std=  1.02 | CV= 0.02 | range=[36,44] | sessions=29/30
+  * 108:225:504          | mean=  31.41 | std=  1.81 | CV= 0.06 | range=[24,35] | sessions=29/30
+  * 108:520:679          | mean=  31.41 | std=  1.81 | CV= 0.06 | range=[24,35] | sessions=29/30
+  * 108:20:22            | mean=  29.87 | std=  1.06 | CV= 0.04 | range=[24,31] | sessions=29/30
+  * 108:772:774          | mean=  29.01 | std=  1.61 | CV= 0.06 | range=[22,34] | sessions=29/30
+  * 108:774:903          | mean=  29.01 | std=  1.61 | CV= 0.06 | range=[22,34] | sessions=29/30
+  * 108:947:973          | mean=  29.01 | std=  1.61 | CV= 0.06 | range=[22,34] | sessions=29/30
+  * 108:689:691          | mean=  27.63 | std=  1.79 | CV= 0.06 | range=[20,31] | sessions=29/30
+  * 108:699:766          | mean=  27.63 | std=  1.79 | CV= 0.06 | range=[20,31] | sessions=29/30
+  * 108:980:992          | mean=  27.25 | std=  1.73 | CV= 0.06 | range=[21,30] | sessions=29/30
+  * 108:912:938          | mean=  26.37 | std=  1.64 | CV= 0.06 | range=[21,32] | sessions=29/30
+  * 108:25:27            | mean=  15.96 | std=  0.69 | CV= 0.04 | range=[12,17] | sessions=29/30
+  * 108:25:200           | mean=  13.91 | std=  0.40 | CV= 0.03 | range=[12,14] | sessions=29/30
+  * 108:20:200           | mean=  10.93 | std=  0.39 | CV= 0.04 | range=[10,16] | sessions=29/30
+  * 108:225:227          | mean=   9.39 | std=  1.65 | CV= 0.18 | range=[7,15] | sessions=29/30
+  * 108:456:482          | mean=   8.83 | std=  1.49 | CV= 0.17 | range=[7,15] | sessions=29/30
+  * 108:421:447          | mean=   8.58 | std=  1.71 | CV= 0.20 | range=[6,15] | sessions=29/30
+  * 108:236:238          | mean=   8.17 | std=  1.60 | CV= 0.20 | range=[6,14] | sessions=29/30
+  * 108:242:378          | mean=   8.17 | std=  1.60 | CV= 0.20 | range=[6,14] | sessions=29/30
+  * 108:62:213           | mean=   8.03 | std=  0.46 | CV= 0.06 | range=[6,9] | sessions=29/30
+  * 108:62:64            | mean=   7.92 | std=  0.67 | CV= 0.08 | range=[5,9] | sessions=29/30
+  * 108:386:412          | mean=   7.83 | std=  1.49 | CV= 0.19 | range=[6,14] | sessions=29/30
+  * 108:489:992          | mean=   7.58 | std=  1.71 | CV= 0.23 | range=[5,13] | sessions=29/30
+  * 108:67:69            | mean=   6.97 | std=  0.57 | CV= 0.08 | range=[5,8] | sessions=29/30
+  * 108:104:213          | mean=   5.48 | std=  0.57 | CV= 0.10 | range=[4,7] | sessions=29/30
+  * 108:912:914          | mean=   5.04 | std=  0.76 | CV= 0.15 | range=[2,6] | sessions=29/30
+  * 108:980:982          | mean=   4.16 | std=  0.75 | CV= 0.18 | range=[2,7] | sessions=29/30
+  * 108:689:701          | mean=   3.78 | std=  0.41 | CV= 0.11 | range=[3,4] | sessions=29/30
+  * 108:772:878          | mean=   2.40 | std=  0.65 | CV= 0.27 | range=[1,3] | sessions=29/30
+  * 108:947:949          | mean=   2.40 | std=  0.65 | CV= 0.27 | range=[1,3] | sessions=29/30
+  * 108:489:491          | mean=   1.81 | std=  0.68 | CV= 0.37 | range=[1,3] | sessions=29/30
+  * 108:386:388          | mean=   1.56 | std=  0.63 | CV= 0.41 | range=[1,3] | sessions=29/30
+  * 108:104:106          | mean=   1.49 | std=  0.66 | CV= 0.45 | range=[1,3] | sessions=29/30
+  * 108:109:111          | mean=   1.49 | std=  0.66 | CV= 0.45 | range=[1,3] | sessions=29/30
+  * 108:146:213          | mean=   1.49 | std=  0.66 | CV= 0.45 | range=[1,3] | sessions=29/30
+  * 108:236:244          | mean=   1.22 | std=  0.41 | CV= 0.34 | range=[1,2] | sessions=29/30
+  * 108:257:259          | mean=   1.22 | std=  0.41 | CV= 0.34 | range=[1,2] | sessions=29/30
+  * 108:303:378          | mean=   1.22 | std=  0.41 | CV= 0.34 | range=[1,2] | sessions=29/30
+    108:12:186           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    108:67:213           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+  * 108:421:423          | mean=   1.23 | std=  0.42 | CV= 0.34 | range=[1,2] | sessions=29/30
+  * 108:456:458          | mean=   1.16 | std=  0.37 | CV= 0.32 | range=[1,2] | sessions=29/30
+  * 108:8:10             | mean=   4.04 | std=  0.27 | CV= 0.07 | range=[4,6] | sessions=1/30
+  * 108:8:22             | mean=   2.04 | std=  0.19 | CV= 0.09 | range=[2,3] | sessions=1/30
+  * 108:28:30            | mean=   2.04 | std=  0.19 | CV= 0.09 | range=[2,3] | sessions=1/30
+  * 108:57:384           | mean=   2.04 | std=  0.19 | CV= 0.09 | range=[2,3] | sessions=1/30
+
+## memset (func_id=109, 4 edges)
+    109:8:10             | mean=   4.00 | std=  0.00 | CV= 0.00 | range=[4,4] | sessions=29/30
+  * 109:8:22             | mean=   2.02 | std=  0.13 | CV= 0.06 | range=[2,5] | sessions=29/30
+  * 109:28:30            | mean=   2.02 | std=  0.13 | CV= 0.06 | range=[2,5] | sessions=29/30
+  * 109:57:384           | mean=   2.02 | std=  0.13 | CV= 0.06 | range=[2,5] | sessions=29/30
+
+## pop_arg (func_id=103, 2 edges)
+    103:44:65            | mean=   8.00 | std=  0.00 | CV= 0.00 | range=[8,8] | sessions=29/30
+    103:44:92            | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+
+## printf_core (func_id=102, 75 edges)
+    102:223:225          | mean= 196.00 | std=  0.00 | CV= 0.00 | range=[196,196] | sessions=29/30
+    102:230:822          | mean= 172.00 | std=  0.00 | CV= 0.00 | range=[172,172] | sessions=29/30
+    102:837:206          | mean= 172.00 | std=  0.00 | CV= 0.00 | range=[172,172] | sessions=29/30
+    102:165:167          | mean=  29.00 | std=  0.00 | CV= 0.00 | range=[29,29] | sessions=29/30
+    102:200:202          | mean=  26.00 | std=  0.00 | CV= 0.00 | range=[26,26] | sessions=29/30
+    102:319:321          | mean=  26.00 | std=  0.00 | CV= 0.00 | range=[26,26] | sessions=29/30
+    102:230:232          | mean=  24.00 | std=  0.00 | CV= 0.00 | range=[24,24] | sessions=29/30
+    102:252:254          | mean=  24.00 | std=  0.00 | CV= 0.00 | range=[24,24] | sessions=29/30
+    102:258:299          | mean=  24.00 | std=  0.00 | CV= 0.00 | range=[24,24] | sessions=29/30
+    102:326:328          | mean=  20.00 | std=  0.00 | CV= 0.00 | range=[20,20] | sessions=29/30
+  * 102:336:338          | mean=  19.91 | std=  0.40 | CV= 0.02 | range=[18,20] | sessions=29/30
+    102:354:147          | mean=  14.00 | std=  0.00 | CV= 0.00 | range=[14,14] | sessions=29/30
+  * 102:2447:2406        | mean=  12.20 | std=  0.71 | CV= 0.06 | range=[8,14] | sessions=29/30
+    102:354:356          | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:521:679          | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:696:698          | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:702:1204         | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:1225:1227        | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:1235:1508        | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:1529:1531        | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:1564:1566        | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:1578:1580        | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:1583:1585        | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:1592:1625        | mean=  12.00 | std=  0.00 | CV= 0.00 | range=[12,12] | sessions=29/30
+    102:384:418          | mean=  11.00 | std=  0.00 | CV= 0.00 | range=[11,11] | sessions=29/30
+    102:435:513          | mean=  11.00 | std=  0.00 | CV= 0.00 | range=[11,11] | sessions=29/30
+    102:1630:1638        | mean=   9.00 | std=  0.00 | CV= 0.00 | range=[9,9] | sessions=29/30
+    102:1654:1674        | mean=   9.00 | std=  0.00 | CV= 0.00 | range=[9,9] | sessions=29/30
+    102:2456:2465        | mean=   9.00 | std=  0.00 | CV= 0.00 | range=[9,9] | sessions=29/30
+    102:2538:6568        | mean=   9.00 | std=  0.00 | CV= 0.00 | range=[9,9] | sessions=29/30
+    102:6596:6598        | mean=   9.00 | std=  0.00 | CV= 0.00 | range=[9,9] | sessions=29/30
+    102:6618:6620        | mean=   9.00 | std=  0.00 | CV= 0.00 | range=[9,9] | sessions=29/30
+    102:7077:147         | mean=   9.00 | std=  0.00 | CV= 0.00 | range=[9,9] | sessions=29/30
+  * 102:6767:6769        | mean=   8.96 | std=  0.20 | CV= 0.02 | range=[8,9] | sessions=29/30
+  * 102:7054:7056        | mean=   8.96 | std=  0.20 | CV= 0.02 | range=[8,9] | sessions=29/30
+    102:1765:2226        | mean=   8.00 | std=  0.00 | CV= 0.00 | range=[8,8] | sessions=29/30
+    102:2239:2267        | mean=   8.00 | std=  0.00 | CV= 0.00 | range=[8,8] | sessions=29/30
+    102:2277:2293        | mean=   8.00 | std=  0.00 | CV= 0.00 | range=[8,8] | sessions=29/30
+    102:2330:2332        | mean=   8.00 | std=  0.00 | CV= 0.00 | range=[8,8] | sessions=29/30
+    102:2340:2397        | mean=   8.00 | std=  0.00 | CV= 0.00 | range=[8,8] | sessions=29/30
+    102:6631:6633        | mean=   8.00 | std=  0.00 | CV= 0.00 | range=[8,8] | sessions=29/30
+    102:6638:6756        | mean=   8.00 | std=  0.00 | CV= 0.00 | range=[8,8] | sessions=29/30
+    102:6792:6917        | mean=   8.00 | std=  0.00 | CV= 0.00 | range=[8,8] | sessions=29/30
+  * 102:2404:2406        | mean=   6.98 | std=  0.13 | CV= 0.02 | range=[4,7] | sessions=29/30
+  * 102:2447:2449        | mean=   6.98 | std=  0.13 | CV= 0.02 | range=[4,7] | sessions=29/30
+  * 102:2492:2512        | mean=   6.98 | std=  0.13 | CV= 0.02 | range=[4,7] | sessions=29/30
+  * 102:6925:7043        | mean=   6.98 | std=  0.13 | CV= 0.02 | range=[4,7] | sessions=29/30
+    102:326:351          | mean=   6.00 | std=  0.00 | CV= 0.00 | range=[6,6] | sessions=29/30
+    102:200:840          | mean=   3.00 | std=  0.00 | CV= 0.00 | range=[3,3] | sessions=29/30
+    102:843:9042         | mean=   3.00 | std=  0.00 | CV= 0.00 | range=[3,3] | sessions=29/30
+    102:1630:1632        | mean=   3.00 | std=  0.00 | CV= 0.00 | range=[3,3] | sessions=29/30
+    102:1636:9042        | mean=   3.00 | std=  0.00 | CV= 0.00 | range=[3,3] | sessions=29/30
+  * 102:2492:2494        | mean=   2.02 | std=  0.13 | CV= 0.06 | range=[2,5] | sessions=29/30
+  * 102:2500:2512        | mean=   2.02 | std=  0.13 | CV= 0.06 | range=[2,5] | sessions=29/30
+  * 102:6925:6927        | mean=   2.02 | std=  0.13 | CV= 0.06 | range=[2,5] | sessions=29/30
+  * 102:6965:7015        | mean=   2.02 | std=  0.13 | CV= 0.06 | range=[2,5] | sessions=29/30
+  * 102:7024:7026        | mean=   2.02 | std=  0.13 | CV= 0.06 | range=[2,5] | sessions=29/30
+    102:223:294          | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=29/30
+  * 102:2404:2450        | mean=   1.02 | std=  0.13 | CV= 0.12 | range=[1,4] | sessions=29/30
+    102:384:386          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:394:418          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:435:437          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:450:452          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:489:513          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:1765:2000        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:2024:2026        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:2030:2450        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:6631:6756        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:6792:6794        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:6799:6917        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+  * 102:44:65            | mean=   8.02 | std=  0.14 | CV= 0.02 | range=[8,9] | sessions=1/30
+    102:336:351          | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=29/30
+    102:6767:6782        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:7054:7069        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    102:44:92            | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+
+## reset_drive (func_id=41, 9 edges)
+    41:75:77             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    41:153:155           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    41:164:176           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    41:84:117            | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    41:121:140           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    41:84:86             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    41:88:90             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    41:93:95             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    41:115:140           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+
+## sn_write (func_id=107, 46 edges)
+    107:39:41            | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=29/30
+    107:108:151          | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=29/30
+  * 107:12:14            | mean=  40.87 | std=  1.22 | CV= 0.03 | range=[36,45] | sessions=1/30
+  * 107:225:504          | mean=  30.80 | std=  1.63 | CV= 0.05 | range=[24,37] | sessions=1/30
+  * 107:520:679          | mean=  30.80 | std=  1.63 | CV= 0.05 | range=[24,37] | sessions=1/30
+  * 107:20:22            | mean=  29.96 | std=  1.28 | CV= 0.04 | range=[24,35] | sessions=1/30
+  * 107:772:774          | mean=  28.60 | std=  1.55 | CV= 0.05 | range=[22,34] | sessions=1/30
+  * 107:774:903          | mean=  28.60 | std=  1.55 | CV= 0.05 | range=[22,34] | sessions=1/30
+  * 107:947:973          | mean=  28.60 | std=  1.55 | CV= 0.05 | range=[22,34] | sessions=1/30
+  * 107:689:691          | mean=  27.02 | std=  1.62 | CV= 0.06 | range=[20,33] | sessions=1/30
+  * 107:699:766          | mean=  27.02 | std=  1.62 | CV= 0.06 | range=[20,33] | sessions=1/30
+  * 107:980:992          | mean=  26.84 | std=  1.67 | CV= 0.06 | range=[21,33] | sessions=1/30
+  * 107:912:938          | mean=  26.02 | std=  1.57 | CV= 0.06 | range=[21,32] | sessions=1/30
+  * 107:25:27            | mean=  16.02 | std=  0.80 | CV= 0.05 | range=[12,19] | sessions=1/30
+  * 107:25:200           | mean=  13.94 | std=  0.51 | CV= 0.04 | range=[12,16] | sessions=1/30
+  * 107:20:200           | mean=  10.91 | std=  0.41 | CV= 0.04 | range=[10,13] | sessions=1/30
+  * 107:225:227          | mean=  10.07 | std=  1.41 | CV= 0.14 | range=[7,15] | sessions=1/30
+  * 107:456:482          | mean=   9.32 | std=  1.41 | CV= 0.15 | range=[7,15] | sessions=1/30
+  * 107:421:447          | mean=   9.06 | std=  1.64 | CV= 0.18 | range=[6,15] | sessions=1/30
+  * 107:236:238          | mean=   8.85 | std=  1.35 | CV= 0.15 | range=[6,14] | sessions=1/30
+  * 107:242:378          | mean=   8.85 | std=  1.35 | CV= 0.15 | range=[6,14] | sessions=1/30
+  * 107:62:64            | mean=   8.49 | std=  0.69 | CV= 0.08 | range=[5,10] | sessions=1/30
+  * 107:386:412          | mean=   8.32 | std=  1.41 | CV= 0.17 | range=[6,14] | sessions=1/30
+  * 107:489:992          | mean=   8.05 | std=  1.62 | CV= 0.20 | range=[5,13] | sessions=1/30
+  * 107:62:213           | mean=   7.53 | std=  0.63 | CV= 0.08 | range=[6,10] | sessions=1/30
+  * 107:67:69            | mean=   7.52 | std=  0.58 | CV= 0.08 | range=[5,8] | sessions=1/30
+  * 107:104:213          | mean=   5.78 | std=  0.72 | CV= 0.13 | range=[4,7] | sessions=1/30
+  * 107:912:914          | mean=   4.78 | std=  0.77 | CV= 0.16 | range=[2,6] | sessions=1/30
+  * 107:980:982          | mean=   3.96 | std=  0.81 | CV= 0.20 | range=[2,6] | sessions=1/30
+  * 107:689:701          | mean=   3.78 | std=  0.41 | CV= 0.11 | range=[3,4] | sessions=1/30
+  * 107:772:878          | mean=   2.20 | std=  0.69 | CV= 0.31 | range=[1,3] | sessions=1/30
+  * 107:947:949          | mean=   2.20 | std=  0.69 | CV= 0.31 | range=[1,3] | sessions=1/30
+  * 107:489:491          | mean=   2.02 | std=  0.72 | CV= 0.35 | range=[1,3] | sessions=1/30
+  * 107:386:388          | mean=   1.75 | std=  0.67 | CV= 0.38 | range=[1,3] | sessions=1/30
+  * 107:104:106          | mean=   1.74 | std=  0.63 | CV= 0.36 | range=[1,3] | sessions=1/30
+  * 107:109:111          | mean=   1.74 | std=  0.63 | CV= 0.36 | range=[1,3] | sessions=1/30
+  * 107:146:213          | mean=   1.74 | std=  0.63 | CV= 0.36 | range=[1,3] | sessions=1/30
+  * 107:236:244          | mean=   1.22 | std=  0.41 | CV= 0.34 | range=[1,2] | sessions=1/30
+  * 107:257:259          | mean=   1.22 | std=  0.41 | CV= 0.34 | range=[1,2] | sessions=1/30
+  * 107:303:378          | mean=   1.22 | std=  0.41 | CV= 0.34 | range=[1,2] | sessions=1/30
+  * 107:12:186           | mean=   1.04 | std=  0.27 | CV= 0.26 | range=[1,3] | sessions=1/30
+  * 107:421:423          | mean=   1.35 | std=  0.48 | CV= 0.35 | range=[1,2] | sessions=1/30
+  * 107:67:213           | mean=   1.02 | std=  0.14 | CV= 0.14 | range=[1,2] | sessions=1/30
+    107:39:85            | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    107:108:110          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+  * 107:456:458          | mean=   1.21 | std=  0.40 | CV= 0.34 | range=[1,2] | sessions=1/30
+
+## vfprintf (func_id=101, 84 edges)
+  * 101:223:225          | mean= 197.43 | std= 10.25 | CV= 0.05 | range=[196,271] | sessions=1/30
+  * 101:230:822          | mean= 173.35 | std=  9.70 | CV= 0.06 | range=[172,243] | sessions=1/30
+  * 101:837:206          | mean= 173.35 | std=  9.70 | CV= 0.06 | range=[172,243] | sessions=1/30
+    101:122:130          | mean=   3.00 | std=  0.00 | CV= 0.00 | range=[3,3] | sessions=29/30
+    101:148:150          | mean=   3.00 | std=  0.00 | CV= 0.00 | range=[3,3] | sessions=29/30
+  * 101:239:241          | mean=   2.04 | std=  0.21 | CV= 0.10 | range=[2,3] | sessions=29/30
+    101:174:176          | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=29/30
+    101:212:226          | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=29/30
+    101:285:287          | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=29/30
+    101:298:107          | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=29/30
+  * 101:165:167          | mean=  29.11 | std=  0.82 | CV= 0.03 | range=[29,35] | sessions=1/30
+    101:174:214          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    101:285:350          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    101:224:241          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+  * 101:200:202          | mean=  26.10 | std=  0.68 | CV= 0.03 | range=[26,31] | sessions=1/30
+  * 101:319:321          | mean=  26.10 | std=  0.68 | CV= 0.03 | range=[26,31] | sessions=1/30
+  * 101:230:232          | mean=  24.08 | std=  0.55 | CV= 0.02 | range=[24,28] | sessions=1/30
+  * 101:252:254          | mean=  24.08 | std=  0.55 | CV= 0.02 | range=[24,28] | sessions=1/30
+  * 101:258:299          | mean=  24.08 | std=  0.55 | CV= 0.02 | range=[24,28] | sessions=1/30
+  * 101:326:328          | mean=  20.06 | std=  0.41 | CV= 0.02 | range=[20,23] | sessions=1/30
+  * 101:336:338          | mean=  19.96 | std=  0.60 | CV= 0.03 | range=[18,23] | sessions=1/30
+  * 101:354:147          | mean=  14.06 | std=  0.41 | CV= 0.03 | range=[14,17] | sessions=1/30
+  * 101:2447:2406        | mean=  12.82 | std=  0.99 | CV= 0.08 | range=[8,14] | sessions=1/30
+  * 101:354:356          | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:521:679          | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:696:698          | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:702:1204         | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:1225:1227        | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:1235:1508        | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:1529:1531        | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:1564:1566        | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:1578:1580        | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:1583:1585        | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:1592:1625        | mean=  12.04 | std=  0.27 | CV= 0.02 | range=[12,14] | sessions=1/30
+  * 101:384:418          | mean=  11.04 | std=  0.27 | CV= 0.02 | range=[11,13] | sessions=1/30
+  * 101:435:513          | mean=  11.04 | std=  0.27 | CV= 0.02 | range=[11,13] | sessions=1/30
+  * 101:1630:1638        | mean=   9.02 | std=  0.14 | CV= 0.02 | range=[9,10] | sessions=1/30
+  * 101:1654:1674        | mean=   9.02 | std=  0.14 | CV= 0.02 | range=[9,10] | sessions=1/30
+  * 101:2456:2465        | mean=   9.02 | std=  0.14 | CV= 0.02 | range=[9,10] | sessions=1/30
+  * 101:2538:6568        | mean=   9.02 | std=  0.14 | CV= 0.02 | range=[9,10] | sessions=1/30
+  * 101:6596:6598        | mean=   9.02 | std=  0.14 | CV= 0.02 | range=[9,10] | sessions=1/30
+  * 101:6618:6620        | mean=   9.02 | std=  0.14 | CV= 0.02 | range=[9,10] | sessions=1/30
+  * 101:7077:147         | mean=   9.02 | std=  0.14 | CV= 0.02 | range=[9,10] | sessions=1/30
+  * 101:6767:6769        | mean=   8.97 | std=  0.26 | CV= 0.03 | range=[8,10] | sessions=1/30
+  * 101:7054:7056        | mean=   8.97 | std=  0.26 | CV= 0.03 | range=[8,10] | sessions=1/30
+  * 101:1765:2226        | mean=   8.02 | std=  0.14 | CV= 0.02 | range=[8,9] | sessions=1/30
+  * 101:2239:2267        | mean=   8.02 | std=  0.14 | CV= 0.02 | range=[8,9] | sessions=1/30
+  * 101:2277:2293        | mean=   8.02 | std=  0.14 | CV= 0.02 | range=[8,9] | sessions=1/30
+  * 101:2330:2332        | mean=   8.02 | std=  0.14 | CV= 0.02 | range=[8,9] | sessions=1/30
+  * 101:2340:2397        | mean=   8.02 | std=  0.14 | CV= 0.02 | range=[8,9] | sessions=1/30
+  * 101:6631:6633        | mean=   8.02 | std=  0.14 | CV= 0.02 | range=[8,9] | sessions=1/30
+  * 101:6638:6756        | mean=   8.02 | std=  0.14 | CV= 0.02 | range=[8,9] | sessions=1/30
+  * 101:6792:6917        | mean=   8.02 | std=  0.14 | CV= 0.02 | range=[8,9] | sessions=1/30
+  * 101:2404:2406        | mean=   6.98 | std=  0.23 | CV= 0.03 | range=[6,8] | sessions=1/30
+  * 101:2447:2449        | mean=   6.98 | std=  0.23 | CV= 0.03 | range=[6,8] | sessions=1/30
+  * 101:2492:2512        | mean=   6.98 | std=  0.23 | CV= 0.03 | range=[6,8] | sessions=1/30
+  * 101:6925:7043        | mean=   6.98 | std=  0.23 | CV= 0.03 | range=[6,8] | sessions=1/30
+  * 101:326:351          | mean=   6.04 | std=  0.27 | CV= 0.05 | range=[6,8] | sessions=1/30
+  * 101:200:840          | mean=   3.02 | std=  0.14 | CV= 0.05 | range=[3,4] | sessions=1/30
+  * 101:843:9042         | mean=   3.02 | std=  0.14 | CV= 0.05 | range=[3,4] | sessions=1/30
+  * 101:1630:1632        | mean=   3.02 | std=  0.14 | CV= 0.05 | range=[3,4] | sessions=1/30
+  * 101:1636:9042        | mean=   3.02 | std=  0.14 | CV= 0.05 | range=[3,4] | sessions=1/30
+  * 101:2492:2494        | mean=   2.04 | std=  0.19 | CV= 0.09 | range=[2,3] | sessions=1/30
+  * 101:2500:2512        | mean=   2.04 | std=  0.19 | CV= 0.09 | range=[2,3] | sessions=1/30
+  * 101:6925:6927        | mean=   2.04 | std=  0.19 | CV= 0.09 | range=[2,3] | sessions=1/30
+  * 101:6965:7015        | mean=   2.04 | std=  0.19 | CV= 0.09 | range=[2,3] | sessions=1/30
+  * 101:7024:7026        | mean=   2.04 | std=  0.19 | CV= 0.09 | range=[2,3] | sessions=1/30
+  * 101:223:294          | mean=   2.02 | std=  0.14 | CV= 0.07 | range=[2,3] | sessions=1/30
+    101:224:226          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+  * 101:2404:2450        | mean=   1.04 | std=  0.19 | CV= 0.18 | range=[1,2] | sessions=1/30
+    101:384:386          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:394:418          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:435:437          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:450:452          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:489:513          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:1765:2000        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:2024:2026        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:2030:2450        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:6631:6756        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:6792:6794        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:6799:6917        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:336:351          | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=1/30
+    101:6767:6782        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    101:7054:7069        | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+
+## vsnprintf (func_id=106, 5 edges)
+    106:123:138          | mean=   2.00 | std=  0.00 | CV= 0.00 | range=[2,2] | sessions=29/30
+  * 106:39:41            | mean=   2.02 | std=  0.14 | CV= 0.07 | range=[2,3] | sessions=1/30
+  * 106:108:151          | mean=   2.02 | std=  0.14 | CV= 0.07 | range=[2,3] | sessions=1/30
+    106:39:85            | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    106:108:110          | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+
+## waxi_sdk_log_extended (func_id=46, 1 edges)
+    46:43:62             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+
+## writev (func_id=83, 6 edges)
+    83:31:46             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    83:69:71             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    83:86:96             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=29/30
+    83:92:94             | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    83:107:109           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+    83:145:298           | mean=   1.00 | std=  0.00 | CV= 0.00 | range=[1,1] | sessions=1/30
+
+# Summary:
+# Total library edges: 316
+# Mean library branches per tick: 3627

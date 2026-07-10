@@ -1,0 +1,38 @@
+{
+  "n_balance_windows": 130025,
+  "target_x_stats": [
+    {
+      "target_x_label": -0.09,
+      "n_windows": 37690,
+      "mean_achieved_x": -0.07159486088062905,
+      "std_achieved_x": 0.05566086260562877,
+      "mean_tracking_error": 0.018405139119370945,
+      "frac_within_2cm": 0.6466702042982223
+    },
+    {
+      "target_x_label": 0.0,
+      "n_windows": 32634,
+      "mean_achieved_x": 0.011742920793923174,
+      "std_achieved_x": 0.037294723236310036,
+      "mean_tracking_error": 0.011742920793923174,
+      "frac_within_2cm": 0.6915180486609058
+    },
+    {
+      "target_x_label": 0.05,
+      "n_windows": 27983,
+      "mean_achieved_x": 0.03916479622089149,
+      "std_achieved_x": 0.021409738880180194,
+      "mean_tracking_error": -0.010835203779108515,
+      "frac_within_2cm": 0.7641782510810134
+    },
+    {
+      "target_x_label": 0.09,
+      "n_windows": 31718,
+      "mean_achieved_x": 0.060301649246484644,
+      "std_achieved_x": 0.07105308620193682,
+      "mean_tracking_error": -0.029698350753515353,
+      "frac_within_2cm": 0.586260167728104
+    }
+  ],
+  "interpretation": "target_x_label is the commanded setpoint from datalayer; mean_achieved_x is the actual cart position during that setpoint. Labels are exactly as reported by the controller, not rounded."
+}

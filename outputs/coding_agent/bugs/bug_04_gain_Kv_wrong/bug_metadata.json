@@ -1,0 +1,12 @@
+{
+  "id": "bug_04_gain_Kv_wrong",
+  "file": "pendulum_controller/sys_params.c",
+  "description": "Velocity gain changed from Pittsburgh-tuned 79.0 to the original pendulum value 97.0. Over-damps cart velocity, causing excessive braking and oscillations.",
+  "category": "parameter_fault",
+  "affected_function": "pou_lqr_sim",
+  "affected_edges": [
+    "40:44:85"
+  ],
+  "difficulty": "hard",
+  "diff": "-     // Pittsburgh specific LQR parameters provided by Marco Giani (CR/APT5)\n    .K_x = 100.0, // 150.0 alternate value\n    .K_v = 79.0,\n+     // Pittsburgh specific LQR parameters provided by Marco Giani (CR/APT5)\n    .K_x = 100.0, // 150.0 alternate value\n    .K_v = 97.0,"
+}

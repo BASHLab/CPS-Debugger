@@ -1,0 +1,41 @@
+{
+  "thresholds": {
+    "p95": 17.61463202200195,
+    "p99": 22.619904132767292
+  },
+  "window_ms": 10,
+  "per_type": {
+    "Trace Swap": {
+      "p95_same_window_pct": 100.0,
+      "p99_same_window_pct": 100.0,
+      "p95_latency_ms": 0.0,
+      "p99_latency_ms": 0.0,
+      "n": 500
+    },
+    "Sensor Corruption (3\u03c3)": {
+      "p95_same_window_pct": 95.8,
+      "p99_same_window_pct": 89.2,
+      "p95_latency_ms": 0.42000000000000004,
+      "p99_latency_ms": 1.08,
+      "n": 500
+    },
+    "Timing Shift (50ms)": {
+      "p95_same_window_pct": 80.4,
+      "p99_same_window_pct": 63.2,
+      "p95_latency_ms": 1.96,
+      "p99_latency_ms": 3.6799999999999997,
+      "n": 500
+    }
+  },
+  "interpretation": "p95_same_window_pct: % of anomalies detected in the same 10ms window they occur. p95_latency_ms: mean detection latency at p95 threshold. With 3-window confirmation, add 20ms for robustness.",
+  "confirmation_3win": {
+    "Trace Swap": {
+      "p95_latency_3win_ms": 20.0,
+      "p99_latency_3win_ms": 20.0
+    },
+    "Sensor Corruption (3\u03c3)": {
+      "p95_latency_3win_ms": 20.42,
+      "p99_latency_3win_ms": 21.08
+    }
+  }
+}

@@ -1,0 +1,165 @@
+{
+  "config": {
+    "runs": [
+      "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_09-23-44",
+      "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_11-12-19"
+    ],
+    "split_mode": "run_holdout",
+    "test_runs": [
+      "2025-03-13_11-12-19"
+    ],
+    "win_ms": 10,
+    "feature_lag": 1,
+    "target": "edges",
+    "topk_edges": 50,
+    "features": "fused",
+    "model": "logreg",
+    "missing_mode": "none",
+    "test_size": 0.2,
+    "random_state": 0,
+    "threshold": 0.5,
+    "max_iter": 50,
+    "mlp_hidden": 256,
+    "mlp_dropout": 0.2,
+    "mlp_lr": 0.001,
+    "mlp_weight_decay": 0.0001,
+    "mlp_batch_size": 256,
+    "mlp_epochs": 25,
+    "train_dropout_prob": 0.2,
+    "mlp_use_pos_weight": true,
+    "mlp_max_pos_weight": 20.0,
+    "mlp_grad_clip_norm": 1.0
+  },
+  "split": {
+    "split_mode": "run_holdout",
+    "train_windows": 3449,
+    "test_windows": 18607,
+    "train_runs": [
+      "2025-03-13_09-23-44"
+    ],
+    "test_runs": [
+      "2025-03-13_11-12-19"
+    ]
+  },
+  "dataset_stats": {
+    "num_runs": 2,
+    "num_windows": 22056,
+    "num_features": 14,
+    "label_cardinality": 48.87581610446137,
+    "target_type": "edges",
+    "top_labels": [
+      {
+        "label": "37->34",
+        "pretty_label": "pou_general_machine(37)->turn_on_with_delay(34)",
+        "count": 22056
+      },
+      {
+        "label": "27->5",
+        "pretty_label": "waxi_end_access(27)->waxi_dlr_user_end_access(5)",
+        "count": 22056
+      },
+      {
+        "label": "37->35",
+        "pretty_label": "pou_general_machine(37)->turn_off_with_delay(35)",
+        "count": 22056
+      },
+      {
+        "label": "26->27",
+        "pretty_label": "ethercat_read(26)->waxi_end_access(27)",
+        "count": 22056
+      },
+      {
+        "label": "30->6",
+        "pretty_label": "log_data(30)->waxi_dlr_user_write_bytes(6)",
+        "count": 22056
+      },
+      {
+        "label": "102->109",
+        "pretty_label": "printf_core(102)->memset(109)",
+        "count": 22056
+      },
+      {
+        "label": "30->3",
+        "pretty_label": "log_data(30)->waxi_dlr_user_begin_access(3)",
+        "count": 22056
+      },
+      {
+        "label": "22->25",
+        "pretty_label": "tick(22)->ts2ns(25)",
+        "count": 22056
+      },
+      {
+        "label": "42->80",
+        "pretty_label": "pou_drive_control_word(42)->printf(80)",
+        "count": 22056
+      },
+      {
+        "label": "102->103",
+        "pretty_label": "printf_core(102)->pop_arg(103)",
+        "count": 22056
+      }
+    ]
+  },
+  "label_space": {
+    "labels_total": 50,
+    "labels_used_for_training": 4
+  },
+  "metrics": {
+    "micro_f1": 0.9183103903450877,
+    "macro_f1": 0.7688960640735799,
+    "precision_at_5": 0.763073037029075,
+    "precision_at_10": 0.763073037029075
+  },
+  "missing_metrics": {},
+  "per_class_f1_top10": [],
+  "sanity": {
+    "feature_columns": [
+      "dl_current_x_mean",
+      "dl_current_x_std",
+      "dl_current_x_delta",
+      "dl_current_angle_mean",
+      "dl_current_angle_std",
+      "dl_current_angle_delta",
+      "dl_angular_velocity_mean",
+      "dl_angular_velocity_std",
+      "dl_angular_velocity_delta",
+      "sl_cpu_mean",
+      "sl_mem_mean",
+      "sl_load1_mean",
+      "sl_load5_mean",
+      "sl_load15_mean"
+    ],
+    "feature_label_cardinality_corr": {
+      "dl_current_x_mean": 0.050669891602127135,
+      "dl_current_x_std": 0.0014563832927683318,
+      "dl_current_x_delta": 0.0028604803744598658,
+      "dl_current_angle_mean": -0.014193342528907959,
+      "dl_current_angle_std": -0.1292981991607446,
+      "dl_current_angle_delta": -0.001837516493302632,
+      "dl_angular_velocity_mean": 0.019668826427606437,
+      "dl_angular_velocity_std": -0.16367914648019863,
+      "dl_angular_velocity_delta": -0.011650606594753862,
+      "sl_cpu_mean": 0.008967062526695732,
+      "sl_mem_mean": 0.5471823104789617,
+      "sl_load1_mean": 0.6933054062813198,
+      "sl_load5_mean": 0.5828334979661286,
+      "sl_load15_mean": 0.5311869425414795
+    },
+    "leakage_assertions_passed": true,
+    "feature_lag": 1
+  },
+  "lag_compare": {
+    "lag_0": {
+      "micro_f1": 0.9143436301943331,
+      "macro_f1": 0.8568010901280053,
+      "precision_at_5": 0.7630320292347378,
+      "precision_at_10": 0.7630320292347378
+    },
+    "lag_1": {
+      "micro_f1": 0.9183103903450877,
+      "macro_f1": 0.7688960640735799,
+      "precision_at_5": 0.763073037029075,
+      "precision_at_10": 0.763073037029075
+    }
+  }
+}

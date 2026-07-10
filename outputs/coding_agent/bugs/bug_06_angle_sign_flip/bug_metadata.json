@@ -1,0 +1,10 @@
+{
+  "id": "bug_06_angle_sign_flip",
+  "file": "pendulum_controller/general.c",
+  "description": "Angle computation negated. Controller corrects in the wrong direction, immediately destabilising the pendulum.",
+  "category": "parameter_fault",
+  "affected_function": "pou_general_drive",
+  "affected_edges": [],
+  "difficulty": "hard",
+  "diff": "- theta_n = (double) encoder_value*2*PGH_PI/PGH_ENCODER_FULL_REV;\n+ theta_n = (double) -encoder_value*2*PGH_PI/PGH_ENCODER_FULL_REV;"
+}

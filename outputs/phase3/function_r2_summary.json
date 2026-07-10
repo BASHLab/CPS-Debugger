@@ -1,0 +1,186 @@
+{
+  "n_branches_total": 100,
+  "overall_mean_within_balance_r2": 0.6143321268379813,
+  "groups": [
+    {
+      "group": "pou_lqr_sim",
+      "n_branches": 2,
+      "mean_r2": 0.2016895665344856,
+      "std_r2": 0.0,
+      "frac_r2_gt_02": 1.0,
+      "frac_r2_gt_03": 0.0,
+      "top5_branches": [
+        {
+          "branch_id": "40:281:316",
+          "fn_name": "pou_lqr_sim",
+          "r2_within_balance": 0.2016895665344856
+        },
+        {
+          "branch_id": "40:44:85",
+          "fn_name": "pou_lqr_sim",
+          "r2_within_balance": 0.2016895665344856
+        }
+      ]
+    },
+    {
+      "group": "tick",
+      "n_branches": 38,
+      "mean_r2": 0.7203587515374023,
+      "std_r2": 0.3260522348281554,
+      "frac_r2_gt_02": 0.868421052631579,
+      "frac_r2_gt_03": 0.8421052631578947,
+      "top5_branches": [
+        {
+          "branch_id": "35:105:119",
+          "fn_name": "turn_off_with_delay",
+          "r2_within_balance": 0.9918965102570518
+        },
+        {
+          "branch_id": "35:24:46",
+          "fn_name": "turn_off_with_delay",
+          "r2_within_balance": 0.9918965102570518
+        },
+        {
+          "branch_id": "35:51:100",
+          "fn_name": "turn_off_with_delay",
+          "r2_within_balance": 0.9918965102570518
+        },
+        {
+          "branch_id": "35:20:22",
+          "fn_name": "turn_off_with_delay",
+          "r2_within_balance": 0.9910082865619624
+        },
+        {
+          "branch_id": "35:20:46",
+          "fn_name": "turn_off_with_delay",
+          "r2_within_balance": 0.9910063394832546
+        }
+      ]
+    },
+    {
+      "group": "memcpy",
+      "n_branches": 33,
+      "mean_r2": 0.8491474242684919,
+      "std_r2": 0.3213564665471417,
+      "frac_r2_gt_02": 0.8787878787878788,
+      "frac_r2_gt_03": 0.8787878787878788,
+      "top5_branches": [
+        {
+          "branch_id": "108:109:111",
+          "fn_name": "memcpy",
+          "r2_within_balance": 0.9937795511252556
+        },
+        {
+          "branch_id": "108:146:213",
+          "fn_name": "memcpy",
+          "r2_within_balance": 0.9937795511252556
+        },
+        {
+          "branch_id": "108:104:106",
+          "fn_name": "memcpy",
+          "r2_within_balance": 0.9937795511252556
+        },
+        {
+          "branch_id": "108:242:378",
+          "fn_name": "memcpy",
+          "r2_within_balance": 0.98829888752291
+        },
+        {
+          "branch_id": "108:236:238",
+          "fn_name": "memcpy",
+          "r2_within_balance": 0.98829888752291
+        }
+      ]
+    },
+    {
+      "group": "memset",
+      "n_branches": 3,
+      "mean_r2": 0.5235406293417277,
+      "std_r2": 0.0,
+      "frac_r2_gt_02": 1.0,
+      "frac_r2_gt_03": 1.0,
+      "top5_branches": [
+        {
+          "branch_id": "109:57:384",
+          "fn_name": "memset",
+          "r2_within_balance": 0.5235406293417277
+        },
+        {
+          "branch_id": "109:8:22",
+          "fn_name": "memset",
+          "r2_within_balance": 0.5235406293417277
+        },
+        {
+          "branch_id": "109:28:30",
+          "fn_name": "memset",
+          "r2_within_balance": 0.5235406293417277
+        }
+      ]
+    },
+    {
+      "group": "math_lib",
+      "n_branches": 4,
+      "mean_r2": -0.006630754791012,
+      "std_r2": 0.0,
+      "frac_r2_gt_02": 0.0,
+      "frac_r2_gt_03": 0.0,
+      "top5_branches": [
+        {
+          "branch_id": "64:17:22",
+          "fn_name": "fmax",
+          "r2_within_balance": -0.006630754791012
+        },
+        {
+          "branch_id": "63:8:10",
+          "fn_name": "fmin",
+          "r2_within_balance": -0.006630754791012
+        },
+        {
+          "branch_id": "63:17:22",
+          "fn_name": "fmin",
+          "r2_within_balance": -0.006630754791012
+        },
+        {
+          "branch_id": "64:8:10",
+          "fn_name": "fmax",
+          "r2_within_balance": -0.006630754791012
+        }
+      ]
+    },
+    {
+      "group": "logging",
+      "n_branches": 20,
+      "mean_r2": 0.20451185612932576,
+      "std_r2": 0.3008556904763405,
+      "frac_r2_gt_02": 0.35,
+      "frac_r2_gt_03": 0.35,
+      "top5_branches": [
+        {
+          "branch_id": "102:2447:2406",
+          "fn_name": "printf_core",
+          "r2_within_balance": 0.9535542279064388
+        },
+        {
+          "branch_id": "102:2404:2450",
+          "fn_name": "printf_core",
+          "r2_within_balance": 0.5258587645471429
+        },
+        {
+          "branch_id": "102:2492:2494",
+          "fn_name": "printf_core",
+          "r2_within_balance": 0.5235406293417277
+        },
+        {
+          "branch_id": "102:7024:7026",
+          "fn_name": "printf_core",
+          "r2_within_balance": 0.5235406293417277
+        },
+        {
+          "branch_id": "102:2500:2512",
+          "fn_name": "printf_core",
+          "r2_within_balance": 0.5235406293417277
+        }
+      ]
+    }
+  ]
+}

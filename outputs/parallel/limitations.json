@@ -1,0 +1,35 @@
+{
+  "thresholds": {
+    "p95": 17.61463202200195,
+    "p99": 22.619904132767292
+  },
+  "summary": {
+    "slow_drift_detected_at_cm": 1.0,
+    "near_setpoint_swap_auc": 0.9532124999999999,
+    "logic_bug_auc": 0.529832
+  },
+  "detailed": {
+    "slow_sensor_drift": {
+      "detectable": true,
+      "detection_cumulative_drift_m": 0.01,
+      "detection_cumulative_drift_cm": 1.0,
+      "explanation": "Slow linear drift is detectable only after 1.0cm cumulative displacement. Below that threshold, the RF adapts its predictions naturally because physical features (angle, velocity) remain consistent with the drifted position. This type of fault is hard to catch because the relationship between physical state and execution path remains valid even with a slowly drifting position reading."
+    },
+    "near_setpoint_swap": {
+      "auc": 0.9532124999999999,
+      "detectable": true,
+      "target_1": "-0.09",
+      "target_2": "0.05",
+      "n_injected": 200,
+      "explanation": "Swapping BALANCE traces between different setpoint targets (-0.09 vs 0.05) achieves AUC=0.953. The setpoint difference is large enough to produce distinguishable execution profiles, so detection is feasible."
+    },
+    "logic_bug_no_physical_signature": {
+      "auc": 0.529832,
+      "detectable": false,
+      "n_branches_perturbed": 5,
+      "pct_branches_perturbed": 5.0,
+      "mean_score_delta": 0.24370691106117384,
+      "explanation": "Perturbing 5 of 100 branch counts (5%) by \u00b11 achieves AUC=0.530. This type of fault is undetectable because the \u00b11 perturbation is within the natural variance of branch execution counts (counts fluctuate by small amounts depending on timing). The L2 residual is dominated by the larger variance in high-count branches, making single-count changes invisible."
+    }
+  }
+}

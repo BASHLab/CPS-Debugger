@@ -1,0 +1,36 @@
+{
+  "methods": {
+    "state_mean": {
+      "r2": -0.6587505622661511,
+      "cosine_sim": 0.9979546224091075,
+      "auc": 0.6268113919002212,
+      "description": "Predict branch vector as mean for controller state (no ML)"
+    },
+    "ridge_regression": {
+      "r2": -305.7247912701628,
+      "cosine_sim": 0.9980181634152423,
+      "auc": 0.5650309996011748,
+      "description": "Ridge regression (physical \u2192 branch counts)"
+    },
+    "lag1_autoregression": {
+      "r2": 0.6524902480912108,
+      "cosine_sim": 0.9997860342925549,
+      "auc": 0.9884457940536622,
+      "description": "Predict branch vector from previous window (no physics)"
+    },
+    "physics_rule": {
+      "r2": NaN,
+      "cosine_sim": NaN,
+      "auc": 0.5,
+      "state_accuracy": 1.0,
+      "description": "Rule-based: expected function from angle/position thresholds"
+    },
+    "random_forest": {
+      "r2": -12.877737540823018,
+      "cosine_sim": 0.9999479443042486,
+      "auc": 0.9998955802907799,
+      "description": "RF regression (physical \u2192 branch counts) \u2014 ours"
+    }
+  },
+  "key_finding": "RF achieves R\u00b2=-12.878 vs lag-1 AR R\u00b2=0.652. If lag-1 AR were close to RF, the model would mainly be doing temporal smoothing. The small gap (\u0394=-13.530) raises concerns that the physical features contribute meaningful predictive information beyond temporal autocorrelation."
+}

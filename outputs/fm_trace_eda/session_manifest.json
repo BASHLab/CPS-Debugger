@@ -1,0 +1,140 @@
+{
+  "2025-03-13_09-23-44": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_09-23-44",
+    "has_processed_trace": true,
+    "processed_trace_mb": 203.7,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": false,
+    "n_rows": 34512,
+    "duration_sec": 34.7
+  },
+  "2025-03-13_11-12-19": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_11-12-19",
+    "has_processed_trace": true,
+    "processed_trace_mb": 1086.9,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": false,
+    "n_rows": 186081,
+    "duration_sec": 186.3
+  },
+  "2025-03-13_13-31-50": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_13-31-50",
+    "has_processed_trace": true,
+    "processed_trace_mb": 409.1,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": false,
+    "n_rows": 69658,
+    "duration_sec": 69.8
+  },
+  "2025-03-13_14-32-27": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_14-32-27",
+    "has_processed_trace": true,
+    "processed_trace_mb": 652.7,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": false,
+    "n_rows": 111164,
+    "duration_sec": 111.4
+  },
+  "2025-03-17_10-06-14": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-17_10-06-14",
+    "has_processed_trace": true,
+    "processed_trace_mb": 2870.5,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": false,
+    "n_rows": 490073,
+    "duration_sec": 490.3
+  },
+  "2025-03-17_10-21-19": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-17_10-21-19",
+    "has_processed_trace": true,
+    "processed_trace_mb": 2855.0,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": false,
+    "n_rows": 487625,
+    "duration_sec": 487.8
+  },
+  "2025-03-17_10-51-58": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-17_10-51-58",
+    "has_processed_trace": true,
+    "processed_trace_mb": 2847.8,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": true,
+    "n_rows": 485398,
+    "duration_sec": 485.6
+  },
+  "2025-03-17_11-06-39": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-17_11-06-39",
+    "has_processed_trace": true,
+    "processed_trace_mb": 2894.5,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": true,
+    "n_rows": 494622,
+    "duration_sec": 494.8
+  },
+  "2025-03-18_12-39-10": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-18_12-39-10",
+    "has_processed_trace": true,
+    "processed_trace_mb": 2956.6,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": true,
+    "n_rows": 505175,
+    "duration_sec": 505.4
+  },
+  "2025-03-19_10-05-47": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-19_10-05-47",
+    "has_processed_trace": true,
+    "processed_trace_mb": 2861.1,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": true,
+    "n_rows": 487608,
+    "duration_sec": 487.8
+  },
+  "2025-03-19_10-20-35": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-19_10-20-35",
+    "has_processed_trace": true,
+    "processed_trace_mb": 2858.9,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": true,
+    "n_rows": 488453,
+    "duration_sec": 488.6
+  },
+  "2025-03-19_10-37-56": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-19_10-37-56",
+    "has_processed_trace": true,
+    "processed_trace_mb": 2861.2,
+    "has_datalayer": true,
+    "has_layout": true,
+    "has_raw_aspk": true,
+    "n_rows": 488725,
+    "duration_sec": 488.9
+  },
+  "2025-03-19_10-54-34": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-19_10-54-34",
+    "has_processed_trace": false,
+    "processed_trace_mb": 0,
+    "has_datalayer": false,
+    "has_layout": true,
+    "has_raw_aspk": true
+  },
+  "2025-02-04_09-33-16": {
+    "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted_feb04/data/2025-02-04_09-33-16",
+    "has_processed_trace": true,
+    "processed_trace_mb": 165.9,
+    "has_datalayer": false,
+    "has_layout": true,
+    "has_raw_aspk": false,
+    "n_rows": 36050,
+    "duration_sec": 36.2
+  }
+}

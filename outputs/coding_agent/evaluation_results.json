@@ -1,0 +1,189 @@
+[
+  {
+    "bug_id": "bug_01_soft_lqr_threshold",
+    "difficulty": "easy",
+    "model": "claude-haiku-4-5-20251001",
+    "turns": 4,
+    "diagnosis": {
+      "fault_type": "parameter_fault",
+      "affected_function": "compute_force",
+      "root_cause": "Counter threshold for switching to softer LQR parameters was incorrectly changed from 500 to 50, causing premature activation of alternative control gains during balance state.",
+      "fix_file": "pendulum_controller/lqrsim.c",
+      "fix_old": "    if (params->counter_goodrange >= 50) {",
+      "fix_new": "    if (params->counter_goodrange >= 500) {"
+    },
+    "scores": {
+      "category_correct": true,
+      "function_correct": true,
+      "file_correct": true,
+      "diagnosis_correct": true,
+      "exact_fix": true,
+      "semantic_fix": true,
+      "partial_fix": true
+    },
+    "tokens": {
+      "input": 23087,
+      "output": 1073,
+      "total": 24160
+    },
+    "elapsed_sec": 10.3
+  },
+  {
+    "bug_id": "bug_02_force_formula_sign",
+    "difficulty": "medium",
+    "model": "claude-haiku-4-5-20251001",
+    "turns": 3,
+    "diagnosis": {
+      "fault_type": "logic_fault",
+      "affected_function": "compute_force",
+      "root_cause": "Incorrect signs on A3 and A4 terms in LQR force calculation: deployed code uses subtraction (- A3 - A4) instead of addition (+ A3 + A4), causing wrong force output and controller malfunction.",
+      "fix_file": "pendulum_controller/lqrsim.c",
+      "fix_old": "    F_lqr = A1 + A2 - A3 - A4;",
+      "fix_new": "    F_lqr = A1 + A2 + A3 + A4;"
+    },
+    "scores": {
+      "category_correct": true,
+      "function_correct": true,
+      "file_correct": true,
+      "diagnosis_correct": true,
+      "exact_fix": true,
+      "semantic_fix": true,
+      "partial_fix": true
+    },
+    "tokens": {
+      "input": 18598,
+      "output": 906,
+      "total": 19504
+    },
+    "elapsed_sec": 9.5
+  },
+  {
+    "bug_id": "bug_03_balance_check_inverted",
+    "difficulty": "easy",
+    "model": "claude-haiku-4-5-20251001",
+    "turns": 15,
+    "diagnosis": null,
+    "scores": {
+      "category_correct": false,
+      "function_correct": false,
+      "file_correct": false,
+      "diagnosis_correct": false,
+      "exact_fix": false,
+      "partial_fix": false
+    },
+    "tokens": {
+      "input": 133604,
+      "output": 1976,
+      "total": 135580
+    },
+    "elapsed_sec": 125.2
+  },
+  {
+    "bug_id": "bug_04_gain_Kv_wrong",
+    "difficulty": "hard",
+    "model": "claude-haiku-4-5-20251001",
+    "turns": 15,
+    "diagnosis": null,
+    "scores": {
+      "category_correct": false,
+      "function_correct": false,
+      "file_correct": false,
+      "diagnosis_correct": false,
+      "exact_fix": false,
+      "partial_fix": false
+    },
+    "tokens": {
+      "input": 367927,
+      "output": 2724,
+      "total": 370651
+    },
+    "elapsed_sec": 403.0
+  },
+  {
+    "bug_id": "bug_05_fsm_dispatch_swapped",
+    "difficulty": "medium",
+    "model": "claude-haiku-4-5-20251001",
+    "turns": 11,
+    "diagnosis": {
+      "fault_type": "logic_fault",
+      "affected_function": "tick",
+      "root_cause": "Line 381 condition inverted: executes swing-up controller when not in swing-up mode, causing dual control path execution during balance state.",
+      "fix_file": "pend_mono/pend_monolithic.c",
+      "fix_old": "            if (!flags.su_enable && flags.lqr_enable)",
+      "fix_new": "            if (flags.su_enable && !flags.lqr_enable)"
+    },
+    "scores": {
+      "category_correct": true,
+      "function_correct": true,
+      "file_correct": true,
+      "diagnosis_correct": true,
+      "exact_fix": true,
+      "semantic_fix": true,
+      "partial_fix": true
+    },
+    "tokens": {
+      "input": 141168,
+      "output": 2541,
+      "total": 143709
+    },
+    "elapsed_sec": 185.6
+  },
+  {
+    "bug_id": "bug_06_angle_sign_flip",
+    "difficulty": "hard",
+    "model": "claude-haiku-4-5-20251001",
+    "turns": 4,
+    "diagnosis": {
+      "fault_type": "parameter_fault",
+      "affected_function": "calculate_theta_ist_axis2",
+      "root_cause": "Negation operator incorrectly applied to encoder_value in theta angle calculation, causing inverted angle feedback during BALANCE state.",
+      "fix_file": "general.c",
+      "fix_old": "     theta_n = (double) -encoder_value*2*PGH_PI/PGH_ENCODER_FULL_REV;",
+      "fix_new": "     theta_n = (double) encoder_value*2*PGH_PI/PGH_ENCODER_FULL_REV;"
+    },
+    "scores": {
+      "category_correct": true,
+      "function_correct": true,
+      "file_correct": true,
+      "diagnosis_correct": true,
+      "exact_fix": true,
+      "semantic_fix": true,
+      "partial_fix": true
+    },
+    "tokens": {
+      "input": 41999,
+      "output": 955,
+      "total": 42954
+    },
+    "elapsed_sec": 70.4
+  },
+  {
+    "bug_id": "bug_07_velocity_integration",
+    "difficulty": "hard",
+    "model": "claude-haiku-4-5-20251001",
+    "turns": 4,
+    "diagnosis": {
+      "fault_type": "logic_fault",
+      "affected_function": "compute_velocity",
+      "root_cause": "Division operator (/) accidentally changed to multiplication operator (*) in velocity damping calculation when counter_goodrange >= 500, causing velocity to be multiplied by a large factor instead of damped.",
+      "fix_file": "pendulum_controller/lqrsim.c",
+      "fix_old": "        lqr_sim_out->SI_v_soll = lqr_sim_out->SI_v_soll_old + lqr_sim_out->LQ_F_soll * (cycletime_secs * (3.9 + params->m_axis));",
+      "fix_new": "        lqr_sim_out->SI_v_soll = lqr_sim_out->SI_v_soll_old + lqr_sim_out->LQ_F_soll * (cycletime_secs / (3.9 + params->m_axis));"
+    },
+    "scores": {
+      "category_correct": true,
+      "function_correct": true,
+      "file_correct": true,
+      "diagnosis_correct": true,
+      "exact_fix": true,
+      "semantic_fix": true,
+      "partial_fix": true
+    },
+    "tokens": {
+      "input": 23310,
+      "output": 1416,
+      "total": 24726
+    },
+    "elapsed_sec": 40.1
+  }
+]

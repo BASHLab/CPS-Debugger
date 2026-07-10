@@ -1,0 +1,167 @@
+{
+  "config": {
+    "runs": [
+      "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_09-23-44"
+    ],
+    "split_mode": "blocked",
+    "test_runs": null,
+    "win_ms": 10,
+    "feature_lag": 1,
+    "target": "edges",
+    "topk_edges": 50,
+    "features": "fused",
+    "model": "logreg",
+    "missing_mode": "test_drop",
+    "test_size": 0.2,
+    "random_state": 0,
+    "threshold": 0.5,
+    "max_iter": 150,
+    "mlp_hidden": 256,
+    "mlp_dropout": 0.2,
+    "mlp_lr": 0.001,
+    "mlp_weight_decay": 0.0001,
+    "mlp_batch_size": 256,
+    "mlp_epochs": 25,
+    "train_dropout_prob": 0.2,
+    "mlp_use_pos_weight": true,
+    "mlp_max_pos_weight": 20.0,
+    "mlp_grad_clip_norm": 1.0
+  },
+  "split": {
+    "split_mode": "blocked",
+    "train_windows": 2414,
+    "test_windows": 1035,
+    "train_runs": [
+      "2025-03-13_09-23-44"
+    ],
+    "test_runs": [
+      "2025-03-13_09-23-44"
+    ]
+  },
+  "dataset_stats": {
+    "num_runs": 1,
+    "num_windows": 3449,
+    "num_features": 14,
+    "label_cardinality": 47.9237460133372,
+    "target_type": "edges",
+    "top_labels": [
+      {
+        "label": "92->108",
+        "pretty_label": "__fwritex(92)->memcpy(108)",
+        "count": 3449
+      },
+      {
+        "label": "26->45",
+        "pretty_label": "ethercat_read(26)->waxi_sdk_log(45)",
+        "count": 3449
+      },
+      {
+        "label": "22->36",
+        "pretty_label": "tick(22)->pou_general_axis(36)",
+        "count": 3449
+      },
+      {
+        "label": "22->25",
+        "pretty_label": "tick(22)->ts2ns(25)",
+        "count": 3449
+      },
+      {
+        "label": "26->27",
+        "pretty_label": "ethercat_read(26)->waxi_end_access(27)",
+        "count": 3449
+      },
+      {
+        "label": "38->34",
+        "pretty_label": "pou_general_drive(38)->turn_on_with_delay(34)",
+        "count": 3449
+      },
+      {
+        "label": "102->103",
+        "pretty_label": "printf_core(102)->pop_arg(103)",
+        "count": 3449
+      },
+      {
+        "label": "107->108",
+        "pretty_label": "sn_write(107)->memcpy(108)",
+        "count": 3449
+      },
+      {
+        "label": "30->31",
+        "pretty_label": "log_data(30)->waxi_end_access(31)",
+        "count": 3449
+      },
+      {
+        "label": "29->27",
+        "pretty_label": "ethercat_write(29)->waxi_end_access(27)",
+        "count": 3449
+      }
+    ]
+  },
+  "label_space": {
+    "labels_total": 50,
+    "labels_used_for_training": 4
+  },
+  "metrics": {
+    "micro_f1": 0.9324324324324325,
+    "macro_f1": 0.75,
+    "precision_at_5": 0.8586956521739131,
+    "precision_at_10": 0.8586956521739131
+  },
+  "missing_metrics": {
+    "micro_f1_missing_syslog": 0.0,
+    "macro_f1_missing_syslog": 0.0,
+    "micro_f1_missing_datalayer": 0.9324324324324325,
+    "macro_f1_missing_datalayer": 0.75
+  },
+  "per_class_f1_top10": [],
+  "sanity": {
+    "feature_columns": [
+      "dl_current_x_mean",
+      "dl_current_x_std",
+      "dl_current_x_delta",
+      "dl_current_angle_mean",
+      "dl_current_angle_std",
+      "dl_current_angle_delta",
+      "dl_angular_velocity_mean",
+      "dl_angular_velocity_std",
+      "dl_angular_velocity_delta",
+      "sl_cpu_mean",
+      "sl_mem_mean",
+      "sl_load1_mean",
+      "sl_load5_mean",
+      "sl_load15_mean"
+    ],
+    "feature_label_cardinality_corr": {
+      "dl_current_x_mean": -0.022189613851441133,
+      "dl_current_x_std": 0.12568959755580425,
+      "dl_current_x_delta": 0.030089726670463477,
+      "dl_current_angle_mean": -0.011581512577556033,
+      "dl_current_angle_std": -0.10064776745618226,
+      "dl_current_angle_delta": -0.003935809124164635,
+      "dl_angular_velocity_mean": -0.0009324383022851191,
+      "dl_angular_velocity_std": -0.10014793775614869,
+      "dl_angular_velocity_delta": -0.03450540486170572,
+      "sl_cpu_mean": 0.016839478412255672,
+      "sl_mem_mean": 0.8099838712898857,
+      "sl_load1_mean": 0.7625271133753698,
+      "sl_load5_mean": 0.7775365796243912,
+      "sl_load15_mean": 0.7792976100734467
+    },
+    "leakage_assertions_passed": true,
+    "feature_lag": 1
+  },
+  "lag_compare": {
+    "lag_0": {
+      "micro_f1": 0.9324324324324325,
+      "macro_f1": 0.75,
+      "precision_at_5": 0.8586956521739131,
+      "precision_at_10": 0.8586956521739131
+    },
+    "lag_1": {
+      "micro_f1": 0.9324324324324325,
+      "macro_f1": 0.75,
+      "precision_at_5": 0.8586956521739131,
+      "precision_at_10": 0.8586956521739131
+    }
+  }
+}

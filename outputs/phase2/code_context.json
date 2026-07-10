@@ -1,0 +1,647 @@
+{
+  "system_description": "This is an industrial inverted pendulum controlled by a Bosch Rexroth ctrlX CORE system.\nThe controller is written in C, compiled to WebAssembly (Wasm), and runs in real-time at\n1 kHz (one 1ms control cycle per call to tick()).\n\nSYSTEM:\n- Cart slides on a horizontal track (range approx -0.18 m to +0.18 m from center)\n- Pendulum arm attached at cart center, free to rotate 360\u00b0\n- Angle = 0 rad: pendulum pointing straight UP (balanced)\n- Angle = \u00b1\u03c0 rad: pendulum hanging straight DOWN\n- Angular velocity = positive when rotating toward upright\n\nCONTROLLER STATES (stored in global pendulum_state):\n  0 = SWINGUP: Pendulum is down or mid-swing. Cart oscillates to pump energy\n      into the pendulum. Calls pou_standup_rel() each tick.\n  1 = BALANCE: Pendulum is near upright (|angle| < threshold). LQR controller\n      maintains balance and moves cart to target position. Calls pou_lqr_sim().\n      Target positions cycle through: 0.0 m, +0.05 m, -0.09 m, +0.09 m\n  2 = RESET: Cart has hit track limits. Cart returns to center before resuming.\n      tick() handles reset directly (no sub-function call to pou_standup_rel/lqr).\n\nKEY CONTROL FLOW in tick():\n  - Reads physical sensors from EtherCAT (cart position, velocity, angle, angular velocity)\n  - Checks if cart is at track limit \u2192 sets state=RESET\n  - Checks if pendulum is near upright \u2192 transitions state 0\u21921 or 1\u21920\n  - Dispatches to pou_standup_rel() [SWINGUP] or pou_lqr_sim() [BALANCE]\n  - Logs data via log_data()\n  - Writes actuator commands back to EtherCAT\n\nEXECUTION TRACING:\n- The Wasm runtime records branch counts per 1ms cycle\n- cf_table[func_id][src_pc][dst_pc] = count of times that branch was taken\n- Physical sensors determine which code paths execute and how many loop iterations run\n- memcpy is heavily used for state vector copying; its branch count encodes data volume\n",
+  "source_files": {
+    "pend_monolithic.c": "#include <assert.h>\n#include <stdint.h>\n#include <stdio.h> // for debugging\n#include <time.h>\n\n/* WAXI includes */\n#include \"waxi/datalayer/definitions.h\"\n#include \"waxi/datalayer/factory.h\"\n#include \"waxi/datalayer/system.h\"\n#include \"waxi/datalayer/user.h\"\n#include \"waxi/datalayer/variant.h\"\n#include \"waxi/scheduler/scheduler.h\"\n#include \"waxi/services/datalayer.h\"\n\n/* WAXI SDK */\n#include \"waxi-c-sdk/datalayer.h\"\n#include \"waxi-c-sdk/logging.h\"\n#include \"waxi-c-sdk/timer.h\"\n#include \"waxi-c-sdk/variant.h\"\n\n#include \"read_ethercat_data.h\"\n#include \"sys_io.h\"\n#include \"ethercat_map.h\"\n#include \"general.h\"\n#include \"control_word.h\"\n#include \"main.h\"\n#include \"sys_params.h\"\n\n#include \"control_word.h\"\n#include \"main.h\"\n#include \"drive_velocity.h\"\n#include \"sys_params.h\"\n\n#include \"main.h\"\n#include \"standup_reliable.h\"\n#include \"log_data.h\"\n// #include \"lqr_sim.h\"\n#include \"pos.h\"\n\n/* For this example we only have two states */\ntypedef enum State\n{\n    NONE = 0,\n    INITIALIZED,\n} State;\n\n#define PERIOD_MS 1\n\n// Maximum safe x distance the pendulum cart can go before we stop the algorithm and return to center\n#define MAX_X_SAFE (MAX_X_DISPL - X_SAFETY_BUFFER)\n\n// Flag to trigger controller to go into safety mode, stop balancing or swingup algorithm,\n// and bring cart back to center before resetting\nbool x_safety_error_triggered = false;\n\n/* Some globals */\nstatic waxi_dlr_factory_t factory = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic waxi_dlr_user_t ether_in_iod = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic waxi_dlr_user_t ether_out_iod = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic waxi_dlr_user_t logger_iod = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic int array_index = 0;\n\n// static waxi_dlr_variant_t memory_map = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic State state = NONE;\n\nsys_machine_input_t sys_machine_in = INIT_SYS_MACHINE_INPUT();\n\n// For Pit Pendulum, changed from P2 to P1\nsys_drive_input_t sys_drive_in = INIT_SYS_DRIVE_INPUT(P1);\nsys_machine_output_t sys_machine_out = INIT_SYS_MACHINE_OUTPUT();\n\n// P2 changed to P1\nsys_drive_output_t sys_drive_out = INIT_SYS_DRIVE_OUTPUT(P1);\n\ngeneral_drive_out_t gen_drive_out = INIT_GENERAL_DRIVE_OUT();\nconst logicaltime_t cycletime = PERIOD_MS * MSEC;\ngeneral_machine_context_t gen_machine_ctx_p1 =\n    INIT_GENERAL_MACHINE_CTX(cycletime);\n\ngeneral_axis_out_t gen_axis_out = INIT_GENERAL_AXIS_OUT();\nstandup_context_t su_ctx = INIT_STANDUP_CONTEXT(cycletime);\n\nlqr_sim_context_t lqr_ctx = INIT_LQR_SIM_CONTEXT(cycletime);\n\nstandup_output_t standup_out;\n\nmain_output_t main_out = INIT_MAIN_OUTPUT();\n\nlqr_sim_outputs_t lqr_sim_out = INIT_LQR_SIM_OUTPUT();\n\npos_output_t pos_out = INIT_POS_OUTPUT();\npos_context_t pos_ctx = INIT_POS_CONTEXT(cycletime);\n\nenable_flags flags;\n\nui_status_machine_t machine_status;\nui_status_pendulum_t p1_status;\nui_event_enable_pendulum_t p1_enable_event;\nui_event_autorun_pendulum_t p1_autorun_event;\nui_event_move_pendulum_t p1_move_event;\nui_status_motion_t p1_motion_status;\n\ngeneral_drive_context_t gen_drive_ctx_p1 =\n    INIT_GENERAL_DRIVE_CONTEXT(cycletime);\n/* Static description of the ethercat input and output */\n// Changed these values to match the interface for the pendulum in Pittsburgh\nstatic const char *ether_in_address =\n    \"fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/input\";\nstatic const char *ether_out_address =\n    \"fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/output\";\n/* The following data could also be generated or dynamically interpreted by\n * using the memory map*/\n#ifndef ether_map_revision\n#define ether_map_revision 1566571575\n#endif\n//static const uint32_t ether_map_revision = 1566571575;\n//2550826156;\n\n/*\nstatic const char *ether_in_address =\n    \"fieldbuses/ethercat/master/instances/a620x1/realtime_data/input\";\nstatic const char *ether_out_address =\n    \"fieldbuses/ethercat/master/instances/a620x1/realtime_data/output\";\nstatic const uint32_t ether_map_revision = 1307587946;\n*/\n\n/*Todo: Add code to create handle to the logger nodes and in balanced mode start logging necessary data*/\nstatic const char *dl_logger_address = \"sdk/cpp/datalayer/pendulum-logging/output\";\n\nuint64_t packet_counter = 0;\nuint32_t iteration = 0;\n\n\n/*  Initialization functions to the factory, datalayer logger nodes, ethercat input and output nodes\n    Also initializes the system parameters and the drive output parameters\n*/\n\nstatic bool init()\n{\n    const char *context = \"init\";\n\n    printf(\"Initialising Wasm callable...\\n\");\n\n    factory = waxi_service_dlr_factory();\n    if (WAXI_INVALID_HOST_DATA_HANDLE == factory)\n    {\n        LOG_ERROR(context, \"Could not get the data layer factory\\n\");\n        return false;\n    }\n\n    WAXIDlrResult res = waxi_dlr_factory_open_memory(\n        factory, &ether_in_iod, sizeof(ether_in_iod), ether_in_address);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not open memory '%s'\", ether_in_address);\n        return false;\n    }\n    res = waxi_dlr_factory_open_memory(factory, &ether_out_iod, sizeof(ether_out_iod),\n                                       ether_out_address);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not open memory '%s'\", ether_out_address);\n        return false;\n    }\n    res = waxi_dlr_factory_open_memory(factory, &logger_iod, sizeof(logger_iod), dl_logger_address);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not open memory '%s'\", dl_logger_address);\n        return false;\n    }\n    // Initialize system parameters\n    sys_reset_machine_ouput(&sys_machine_out);\n    sys_reset_drive_output(&sys_drive_out);\n    ethercat_write(ether_out_iod, &sys_machine_out, &sys_drive_out, ether_map_revision);\n\n    p1_enable_event.b_Dr_AF = false;\n    p1_enable_event.present = true;\n    p1_autorun_event.present = true;\n    p1_autorun_event.b_Au_Start = true;\n\n    iteration = 0;\n    x_safety_error_triggered = false;\n\n    // Initialize datalayer logger\n    set_end_of_process_flag(logger_iod, LOG_BUFFER_NOT_READY);\n    array_index = 0;\n\n    return true;\n}\n\n/* Teardown */\nstatic void deinit()\n{\n    const char *context = \"deinit\";\n    printf(\"De-initialising Wasm callable...\\n\");\n\n    // Stop drive controller with a zero velocity command before the task is de-initialized\n    reset_drive(&sys_drive_out);\n    WAXIDlrResult res = ethercat_write(ether_out_iod, &sys_machine_out, &sys_drive_out, ether_map_revision);\n    if (res != WAXI_DL_OK)\n... [truncated at 200 lines]",
+    "standup_reliable.c": "/* global includes */\r\n#include <math.h>\r\n\r\n/* local includes */\r\n#include \"common.h\"\r\n#include \"general.h\"\r\n#include \"lqrsim.h\"\r\n#include \"plclib.h\"\r\n#include \"sys_params.h\"\r\n\r\n/* self include */\r\n#include \"standup_reliable.h\"\r\n\r\n/* Debugging */\r\n#include <stdio.h>\r\n\r\n#define DEBUG 0\r\n\r\ndouble sign_double(double x) {\r\n    if (x >= 0.0) return 1.0;\r\n    if (x < 0.0) return -1.0;\r\n    return 0.0;  // This should never happen\r\n}\r\n\r\nstatic void compute_velocity_su(const su_sim_params_t *params,\r\n                         standup_output_t *standup_out,\r\n                         const logicaltime_t cycletime) {\r\n    double cycletime_secs = cycletime * 0.001;\r\n    // integrate force to become a velocity value: v = u + a*t where a = cmd_su,\r\n    // t = cycletime\r\n    standup_out->v_soll =\r\n        standup_out->v_soll + standup_out->a_soll * cycletime_secs;\r\n    standup_out->v_soll = fmin(params->v_max, standup_out->v_soll);\r\n    standup_out->v_soll = fmax(-params->v_max, standup_out->v_soll);\r\n    return;\r\n}\r\n\r\nstatic void compute_acceleration_su(const general_drive_out_t *gen_drive_out,\r\n                             const su_sim_params_t *params,\r\n                             standup_output_t *standup_out\r\n                            ) {\r\n    double theta, theta_d, x, safety_xtol;\r\n    double v, safety_vtol;\r\n\r\n    safety_xtol = 0.95;  // percentage of max_xdisplay for asymptote of\r\n                         // restricted cart length control\r\n    safety_vtol =\r\n        0.95;  // percentage of max velocity for velocity well asymptote\r\n\r\n    theta = gen_drive_out->theta_ist;\r\n    theta_d = gen_drive_out->theta_d_ist;\r\n    x = gen_drive_out->x_ist;  // x=0 in the middle\r\n    v = gen_drive_out->v_ist;\r\n\r\n    // Remove jittering at small velicities by putting it to 0\r\n    double theta_d_zero = (fabs(theta_d) < 0.001) ? 0.0 : 1.0;\r\n    double v_zero = (fabs(v) < 0.001) ? 0.0 : 1.0;\r\n\r\n    double ext_costheta = -1.0; //(fabs(theta) > ( p1_general_params.calibrated_PI / 20) ) ? -1.0 : 1.0;\r\n\r\n    double sign_thetadotcostheta = sign_double(theta_d * cos(theta)) * theta_d_zero;\r\n    //double sign_thetadotcostheta = sign_double(theta_d * ext_costheta) * theta_d_zero;\r\n    double sign_x = sign_double(x);\r\n    double sign_v = sign_double(v) * v_zero;\r\n\r\n    // Control command for pure energy control\r\n    double cmd_su_acc = params->K_su * sign_thetadotcostheta;\r\n\r\n    // Control command for restricted cart length\r\n    double frac_relpos = fabs(x) / (safety_xtol * params->max_xdispl);\r\n    double minvalue_pos = (0.9999 < frac_relpos) ? 0.9999 : frac_relpos;\r\n    double cmd_cartwell = params->K_cw * sign_x * log(1 - minvalue_pos);\r\n\r\n    // Control command for velocity well\r\n    double frac_relvel = fabs(v) / (safety_vtol * params->v_max);\r\n    double minvalue_vel = (0.9999 < frac_relvel) ? 0.9999 : frac_relvel;\r\n    double cmd_velwell = params->K_vw * sign_v * log(1 - minvalue_vel);\r\n\r\n    // Combine to find cmd acceleration\r\n    double cmd_su = cmd_su_acc + cmd_cartwell + cmd_velwell;\r\n\r\n    standup_out->a_soll = cmd_su;\r\n\r\n    return;\r\n}\r\n\r\ndouble pou_standup_rel(const general_drive_out_t *gen_drive_out,\r\n                     standup_context_t *ctx,\r\n                     const su_sim_params_t *params,\r\n                     standup_output_t *standup_out,\r\n                     ui_status_motion_t *ui_status_motion) {\r\n    // Compute acceleration command\r\n    compute_acceleration_su(gen_drive_out, params, standup_out);\r\n\r\n    // Compute cart velocity\r\n    compute_velocity_su(params, standup_out, ctx->dt);\r\n\r\n    double velocity = 0.0; \r\n\r\n    // First gentle push\r\n    if (ctx->first_push){\r\n        velocity = 1.0;\r\n        ctx->first_push = false;\r\n    }\r\n    else {\r\n        velocity = standup_out->v_soll;\r\n    }\r\n\r\n    // if (fabs(gen_drive_out->theta_ist < 0.5))\r\n    //\tprintf(\"Theta_ist %f\\n\", gen_drive_out->theta_ist);\r\n    \r\n    if (fabs(gen_drive_out->x_ist) <= 0.8 * params->max_xdispl) { // Activate switch only if far from end of rail\r\n\r\n        if ((fabs(gen_drive_out->theta_ist) < 0.07) && (fabs(gen_drive_out->theta_d_ist) < 0.05)) {\r\n           // printf(\"Angle in interval, setting flags su_pendulum_ok --new \\n\");\r\n            standup_out->su_pndlum_ok = true;\r\n            ui_status_motion->standup_ready = true;\r\n            // printf(\"Yay! Standup done!%lf\\n\", gen_drive_out->theta_ist);\r\n        }\r\n\r\n    }\r\n\r\n    // if(standup_out->su_ready) printf(\"ready\\n\");\r\n    ctx->prev_enable = true;\r\n    return velocity;\r\n}\r\n",
+    "lqrsim.c": "/* global includes */\n#include <math.h>\n#include <unistd.h>\n\n/* local includes */\n#include \"sys_params.h\"\n#include \"general.h\"\n// #include \"main.h\"\n// #include \"main_context.h\"\n/* self include */\n#include \"lqrsim.h\"\n\n/* Debugging */\n#include <stdio.h>\n\n#include <time.h>\n#include <errno.h>    \n\n#define DELAYMODE false\n#define GOODRANGEMODE true\n\n\ndouble reference_pt (lqr_sim_params_t *params, const general_drive_out_t *gen_drive_out) {\n\n    // Iterate through the following setpoints\n    // There is hysteresis in the cart position, this should be checked. For now, hardcoded fix with different setpoints\n    const int NUM_XMODES = 4;\n    double xref[NUM_XMODES] = {gen_drive_out->x_ist, 0.0, 0.08, -0.12};\n\n    // Update counters for updating setpoint\n    if (params->counter_xref < 4000)\n        params->counter_xref++;\n    if (params->counter_xref == 250) // First stay in current position and start balancing, then move to 0\n        params->xref_switch = 1;\n    if (params->counter_xref == 4000) { // First switch after 4 seconds\n        params->xref_switch = 2;\n        params->counter_xref++;\n    }\n\n    // Change setpoint when approaching end of rail\n    if ((params->xref_switch == (NUM_XMODES - 2)) && (gen_drive_out->x_ist >= 0.45 * xref[NUM_XMODES - 2]))\n        params->xref_switch = NUM_XMODES - 1;\n    // There is hysteresis in the cart position, this should be checked. For now, hardcoded fix with 0.8\n    if (params->xref_switch == (NUM_XMODES - 1) && (gen_drive_out->x_ist <= 0.4 * xref[NUM_XMODES - 1]))\n        params->xref_switch = NUM_XMODES - 2;\n\n    // Assign setpoint\n    double xsoll = xref[params->xref_switch];\n    return xsoll;\n}\n\n\ndouble reference_pt_old(lqr_sim_params_t *params, const general_drive_out_t *gen_drive_out) {\n\n    // Iterate through the following setpoints\n    // There is hysteresis in the cart position, this should be checked. For now, hardcoded fix with different setpoints\n    double xref[] = {0.0, 0.08, -0.12};\n\n    // Wait 4 seconds in 0 before starting the setpoint move\n    // Update counters for updating setpoint\n    if (params->counter_xref < 4000)\n        params->counter_xref++;\n    if (params->counter_xref == 4000) { // First switch after 4 seconds\n        params->xref_switch = 1;\n        params->counter_xref++;\n    }\n\n    // Change setpoint when approaching end of rail\n    if ((params->xref_switch == 1) && (gen_drive_out->x_ist >= 0.9 * xref[1]))\n        params->xref_switch = 2;\n    // There is hysteresis in the cart position, this should be checked. For now, hardcoded fix with 0.8\n    if (params->xref_switch == 2 && (gen_drive_out->x_ist <= 0.8 * xref[2]))\n        params->xref_switch = 1;\n\n    // Assign setpoint\n    double xsoll = xref[params->xref_switch];\n    return xsoll;\n}\n\n\nstatic void compute_force(lqr_sim_params_t *params, const general_drive_out_t *gen_drive_out, const double xsoll, \n                        lqr_sim_outputs_t *lqr_sim_out) {\n\n    double A1, A2, A3, A4, F_lqr;\n    //printf(\"x_ist=%f x_soll=%f v_ist=%f\\n\", gen_drive_out->x_ist, main_out->x_soll, gen_drive_out->v_ist);\n    A1 = params->K_x * (gen_drive_out->x_ist - xsoll);\n    A2 = params->K_v * gen_drive_out->v_ist;\n    A3 = params->K_t * gen_drive_out->theta_ist;\n    A4 = params->K_td * gen_drive_out->theta_d_ist;\n\n    // Original LQR parameters\n    // 89.0 97.0 361.0 40.0\n\n    // Switch to softer LQR parameters (together with mass change in velocity function)\n    if (params->counter_goodrange >= 500) {\n        A1 =  100.0 * (gen_drive_out->x_ist - xsoll);\n        A2 = (fabs(gen_drive_out->v_ist) > 0.0001) ? 54.0 * gen_drive_out->v_ist : 0.0;\n        A3 = (fabs(gen_drive_out->theta_ist) > 0.005) ? 274.0 * gen_drive_out->theta_ist : 0.0;\n        A4 = 36.0 * gen_drive_out->theta_d_ist;\n    }\n\n    // Original LQR algorithm formula is\n    // F = A1 + A2 - A3 - A4\n    // Pgh Pendulum angle sign is reversed\n    // (clockwise is positive, counterclockwise is negative)\n    // So we have to reverse the signs of parameters A3 and A4\n    F_lqr = A1 + A2 + A3 + A4;\n    F_lqr = fmax (-params->F_max, F_lqr);\n    F_lqr = fmin ( params->F_max, F_lqr);\n       \n\n    lqr_sim_out->LQ_F_soll =  F_lqr;\n}\n\nstatic void compute_velocity(lqr_sim_params_t *params, const general_drive_out_t *gen_drive_out, const double xsoll,\n                         lqr_sim_outputs_t *lqr_sim_out, const logicaltime_t cycletime) {\n\n    double cycletime_secs = cycletime * 0.001;  \n\n    // Update old velocity value\n    lqr_sim_out->SI_v_soll_old = lqr_sim_out->SI_v_soll;\n\n    // integrate force to become a velocity value: v = u + a*t where a = F/m,  t = cycletime\n    lqr_sim_out->SI_v_soll = lqr_sim_out->SI_v_soll_old + lqr_sim_out->LQ_F_soll * (cycletime_secs / (params->m_axis));\n\n    // Count time within good range\n    if ((params->counter_goodrange < 500) && GOODRANGEMODE) {\n        params->counter_goodrange++;\n    }\n    if (params->counter_goodrange >= 500) { // Switch to softer LQR; for the Pgh pendulum we reduced the softening factor from 5.0 to 3.9 to reduce vibrations\n        lqr_sim_out->SI_v_soll = lqr_sim_out->SI_v_soll_old + lqr_sim_out->LQ_F_soll * (cycletime_secs / (3.9 + params->m_axis));\n    }\n\n    // Reset counter when exceeding good range\n    if ((fabs(gen_drive_out->x_ist - xsoll) > 0.05) || (fabs(gen_drive_out->theta_ist) > 0.05)) {\n        //params->counter_goodrange = 0;\n    }\n\n    // Saturate velocity\n    lqr_sim_out->SI_v_soll = fmin (params->v_max, lqr_sim_out->SI_v_soll);\n    lqr_sim_out->SI_v_soll = fmax (-params->v_max, lqr_sim_out->SI_v_soll);\n    return;\n}\n\ndouble pou_lqr_sim(const lqr_sim_context_t *ctx, lqr_sim_params_t *params, \n                            const general_drive_out_t *gen_drive_out, const double xsoll,\n                         lqr_sim_outputs_t *lqr_sim_out) {\n\n    double velocity = 0.0; \n\n    compute_force(params, gen_drive_out, xsoll, lqr_sim_out);\n\n    compute_velocity (params, gen_drive_out, xsoll, lqr_sim_out, ctx->dt);\n    velocity = lqr_sim_out->SI_v_soll;\n\n    return velocity;\n}\n\n",
+    "log_data.c": "#include \"log_data.h\"\nstatic WAXIDlrResult waxi_end_access(waxi_dlr_user_t iod) {\n    WAXIDlrResult res = waxi_dlr_user_end_access(iod);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(\"waxi_end_access\", \"Could not end access to input memory '%d'\", iod);\n    }\n    return res;\n}\n\nvoid log_data(const int index, const waxi_dlr_user_t logger_handle, const uint16_t pendulum_state, const uint32_t iteration, uint64_t timestamp, \n              const double target_x, const double current_x, const double velocity, const double angle, const double angular_velocity) {\n    const char *context = \"log_data\";\n    const uint32_t revision = 0;\n\n    /*Datalayer map\n\t    uint16_t pendulum_state[ARRAY_SIZE];\n        uint32_t iteration[ARRAY_SIZE]; //\n        uint64_t timestamp[ARRAY_SIZE]; // of size\n        double target_x[ARRAY_SIZE]; // of size\n        double position[ARRAY_SIZE]; //\n        double velocity[ARRAY_SIZE]; //\n        double angle[ARRAY_SIZE]; //\n        double angular_velocity[ARRAY_SIZE];\n     */\n    int offset = 0;\n    int prev_record_size = 0;\n    if (index >= ARRAY_SIZE) // do not log more than ARRAY_SIZE records\n    {\n        return;\n    }\n\n    WAXIDlrResult res = waxi_dlr_user_begin_access(logger_handle, revision);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not begin access to input memory '%d'\",\n                  logger_handle);\n        return;\n    }\n\n    offset = sizeof(pendulum_state) * index;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &pendulum_state, sizeof(pendulum_state));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size = sizeof(pendulum_state);\n    offset = sizeof(iteration) * index + ARRAY_SIZE * prev_record_size;\n\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &iteration, sizeof(iteration));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(iteration);\n    offset = index * sizeof(timestamp) + ARRAY_SIZE * prev_record_size;\n\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &timestamp, sizeof(timestamp));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(timestamp);\n\n    offset = index * sizeof(target_x) + ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &target_x, sizeof(target_x));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(target_x);\n    offset = index * sizeof(current_x) + ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &current_x, sizeof(current_x));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(current_x);\n    offset = index * sizeof(velocity) + ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &velocity, sizeof(velocity));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(velocity);\n    offset = index * sizeof(angle) +  ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &angle, sizeof(angle));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(angle);\n    offset = index * sizeof(angular_velocity) + ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &angular_velocity, sizeof(angular_velocity));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    res = waxi_end_access(logger_handle);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not end access to input memory '%d'\", logger_handle);\n    }\n}\n\nuint16_t read_end_of_process_flag(const waxi_dlr_user_t logger_handle)\n{\n    const char *context = \"read_end_of_process_flag\";\n    const uint32_t revision = 0;\n    uint16_t end_of_process = 0;\n    int byte_offset = PROCESS_FLAG_BYTE_OFFSET;\n    WAXIDlrResult res = waxi_dlr_user_begin_access(logger_handle, revision);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not begin access to input memory '%d'\",\n                  logger_handle);\n        return 0;\n    }\n\n    res = waxi_dlr_user_read_bytes(logger_handle, byte_offset, &end_of_process, sizeof(end_of_process));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not read bytes  from  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return 0;\n    }\n    res = waxi_end_access(logger_handle);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not end access to input memory '%d'\", logger_handle);\n    }\n    return end_of_process;\n}\n\nvoid set_end_of_process_flag(const waxi_dlr_user_t logger_handle, uint16_t value)\n{\n    const char *context = \"set_end_of_process_flag\";\n    const uint32_t revision = 0;\n    WAXIDlrResult res = waxi_dlr_user_begin_access(logger_handle, revision);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not begin access to input memory '%d'\",\n                  logger_handle);\n        return;\n    }\n    int byte_offset = PROCESS_FLAG_BYTE_OFFSET;\n    res = waxi_dlr_user_write_bytes(logger_handle, byte_offset, &value, sizeof(value));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    res = waxi_end_access(logger_handle);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not end access to input memory '%d'\", logger_handle);\n    }\n    return;\n}\n",
+    "general.c": "/* global includes */\n#include <math.h>\n#include <stdlib.h>\n\n/* local includes */\n#include <stdio.h>\n\n#include \"plclib.h\"\n#include \"sys_io.h\"\n#include \"sys_params.h\"\n#include \"ui_io.h\"\n/* self include */\n#include \"general.h\"\n\n#define DEBUG 0\n\n#if 0\nstatic double calculate_theta_raw(const general_params_t *params,\n                                  const double DG_Ana) {\n    double theta_raw;\n    // offsPend = 21757\n    theta_raw = (double)(DG_Ana - params->offsPend);\n    // Gl\u00e4ttung theta\n    return theta_raw;\n}\n\nstatic double calculate_theta(general_drive_context_t *ctx,\n                              const general_params_t *params,\n                              const double theta_raw) {\n    // TODO: move magic constants to params\n    double theta_ist;\n    // theta_gl = 0.1,\n    if (DEBUG) printf(\"Init theta_raw: %f\\n\", ctx->prev_theta_raw);\n    ctx->prev_theta_raw = ctx->prev_theta_raw * (1.0 - params->theta_gl) +\n                          theta_raw * params->theta_gl;\n    if (DEBUG) printf(\"theta_raw: %f \\n\", theta_raw);\n    // calibrated_PI = 2.94836,\n    theta_ist =\n        -(ctx->prev_theta_raw / 32768.0) * 2 * params->calibrated_PI;  // rad\n\n    return theta_ist;\n}\n\n#endif\n\n/*\n    Pittsburgh specific function to calculate angle based on Pittsburgh pendulum encoder hardware\n    The Pgh encoder is a 13-bit singleturn absolute rotary encoder.\n    A full clockwise revolution (i.e. 2 pi radians) goes from 0 to 8191 and back to 0\n    Encoder data sheet:\n    https://www.pepperl-fuchs.com/usa/en/classid_362.htm?view=productdetails&prodid=24164\n*/\nstatic double calculate_theta_ist_axis2(general_drive_context_t *ctx, int encoder_counter_value, bool encoder_calibration) {\n    int prev_encoder_value;\n    int encoder_value;\n    //double encoder_temp;\n    double theta_n = 0.0;\n\n    // Load previous value\n    prev_encoder_value = ctx->prev_encoder_value;\n\n    if (ctx->set_calibration == true) { //encoder_calibration must be set to true only each time a new swing up is attempted [not in every period]\n        ctx->offset = PGH_ENCODER_BITMASK & encoder_counter_value;\n        printf(\"Encoder offset at start: %d \\n\", ctx->offset); //offset is the value of the encoder counter when the pendulum is in the down position\n        ctx->set_calibration = false;\n        ctx->encoder_overflow = 0;\n    }\n    // Shift into calibrated space\n    // Subtract offset from encoder value to shift so that the\n    // down position is counter value 0 and counter 4096 is fully upright\n    encoder_value = (PGH_ENCODER_BITMASK & encoder_counter_value) - ctx->offset;\n    \n    // If raw encoder value is less than the offset add 8192 to wrap the value around\n    if (encoder_value < 0) {\n        encoder_value += PGH_ENCODER_FULL_REV;\n    }\n\n    // For the angle calculation fully upright should be angle 0\n    // So subtract 4096 (AKA 1*Pi) before converting from the counter value to radians\n    encoder_value -= PGH_ENCODER_FULL_REV/2;\n    ctx->curr_encoder_value = encoder_value;\n    theta_n = (double) encoder_value*2*PGH_PI/PGH_ENCODER_FULL_REV;\n\n    // Update previous values\n    ctx->prev2_encoder_value = ctx->prev_encoder_value;\n    ctx->prev_encoder_value = encoder_value;\n    //printf(\"prev encoder val: %lld, theta_n = %lf \\n\", ctx->prev_encoder_value, theta_n);\n    return(theta_n);\n}\n\n/*\nstatic double calculate_theta_ist_axis2(general_drive_context_t *ctx, int encoder_counter_value, bool encoder_calibration) {\n    \n    //The new 16 bit encoder captures the entire 360 degree angle in 4000 steps\n    //It keeps incrementing the counter value until it reaches it max-data level of 65536\n    int value, selected_value, prev_encoder_value, overflow_corr;\n    double theta_n = 0.0;\n    //printf(\"Encoder counter value:%lld \\n\", encoder_counter_value);\n\n\n    // Load previous value\n    prev_encoder_value = ctx->prev_encoder_value;\n\n    // Check for encoder overflows\n    if (prev_encoder_value > 61436 && encoder_counter_value < 4000) {\n        ctx->encoder_overflow++;\n        //printf(\"Overflow ++ detected \\n\");\n    }\n    if (prev_encoder_value < 4000 && encoder_counter_value > 61536) {\n        ctx->encoder_overflow--;\n        //printf(\"Overflow -- detected \\n\");\n    }\n\n    if (ctx->set_calibration == true) { //encoder_calibration must be set to true only each time a new swing up is attempted [not in every period]\n        ctx->offset = encoder_counter_value;\n        printf(\"Encoder offset at start: %d \\n\", ctx->offset); //offset is the value of the encoder counter when the pendulum is in the upright position\n        ctx->set_calibration = false;\n        ctx->encoder_overflow = 0;\n    }\n\n#if 0 \n    int diff_value = abs(ctx->prev_encoder_value - encoder_counter_value);\n\n    //if (diff_value > 50)  \n       //printf(\"Previous value %d, current value %d \\n\", ctx->prev_encoder_value, encoder_counter_value);\n\n    // Filtering logic for encoder errors\n    if((((ctx->prev_encoder_value - encoder_counter_value > 50) && (prev_encoder_value < 65500))\n    || ((encoder_counter_value - ctx->prev_encoder_value > 50) && (encoder_counter_value < 65500))) && !ctx->encoder_error) {\n       \n        ctx->encoder_error = true;\n        //printf(\"!!!!!!!!!!!!!!!!!!!!ENCODER ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! \\n\");\n        //printf(\"Previous value %d, current value %d \\n\", ctx->prev_encoder_value, encoder_counter_value);\n        //encoder_counter_value = ctx->prev_encoder_value;\n    }\n    if (ctx->encoder_error && ctx->counting_errors < 50) // reset at second step\n    {\n        //printf(\"Previos 2 value %d, Previous value %d, current value %d \\n\", ctx->prev2_encoder_value, ctx->prev_encoder_value, encoder_counter_value);\n        ctx->counting_errors = ctx->counting_errors + 1;\n\n        if (ctx->counting_errors >= 50) {\n            ctx->encoder_error = false;\n            ctx->counting_errors = 0;\n        }\n            \n    }\n\n#endif\n\n    \n    overflow_corr = (ctx->encoder_overflow >= 0) ? (1536) : (-2464);\n\n    value = (encoder_counter_value + overflow_corr * ctx->encoder_overflow - ctx->offset) % 4000;\n    selected_value = (value + 4000) % 4000 - 2000;\n   \n   // takes value -2000 in vertical down position, 0 in upright, <0 left half and >0 right half\n\n    ctx->curr_encoder_value = selected_value;\n    theta_n =(double)  (selected_value * 2.0 * p1_general_params.calibrated_PI /4000.0);\n\n    // Update previous values\n    ctx->prev2_encoder_value = ctx->prev_encoder_value;\n    ctx->prev_encoder_value = encoder_counter_value;\n    //printf(\"prev encoder val: %lld, theta_n = %lf \\n\", ctx->prev_encoder_value, theta_n);\n    return(theta_n);\n}\n*/\n\n#if 0\nstatic double calculate_theta_d(const general_drive_context_t *ctx,\n                                const double theta_ist) {\n    double theta_d_ist;\n    double cycletime_secs = ctx->dt * 0.001;\n    theta_d_ist = (theta_ist - ctx->prev_theta) / cycletime_secs;\n    return theta_d_ist;\n}\n#endif \n\nstatic double calculate_theta_d_axis2(general_drive_context_t *ctx,\n                                const double theta_ist, const double p2_encoder_delta_k) {\n    double theta_d_ist;\n    double mod_compensation = 0;\n    double cycletime_secs = ctx->dt * 0.001;\n\n    // Compensate discontinuity of derivative of the modulus\n    if (theta_ist < -2 && ctx->prev_theta >= 2) {\n        mod_compensation = 2 * p2_general_params.calibrated_PI;\n    }\n    if (theta_ist >= 2 && ctx->prev_theta < -2) {\n        mod_compensation = -2 * p2_general_params.calibrated_PI;\n    }\n\n    theta_d_ist = (theta_ist - ctx->prev_theta + mod_compensation) / cycletime_secs;\n    \n    theta_d_ist = ctx->prev_theta_d * (1.0 - p2_encoder_delta_k) + theta_d_ist * p2_encoder_delta_k;\n    ctx->prev_theta_d = theta_d_ist; \n    return theta_d_ist;\n}\n\nstatic double calculate_x(const int32_t Dr_PosIW) {\n... [truncated at 200 lines]"
+  },
+  "source_files_full": {
+    "pend_monolithic.c": "#include <assert.h>\n#include <stdint.h>\n#include <stdio.h> // for debugging\n#include <time.h>\n\n/* WAXI includes */\n#include \"waxi/datalayer/definitions.h\"\n#include \"waxi/datalayer/factory.h\"\n#include \"waxi/datalayer/system.h\"\n#include \"waxi/datalayer/user.h\"\n#include \"waxi/datalayer/variant.h\"\n#include \"waxi/scheduler/scheduler.h\"\n#include \"waxi/services/datalayer.h\"\n\n/* WAXI SDK */\n#include \"waxi-c-sdk/datalayer.h\"\n#include \"waxi-c-sdk/logging.h\"\n#include \"waxi-c-sdk/timer.h\"\n#include \"waxi-c-sdk/variant.h\"\n\n#include \"read_ethercat_data.h\"\n#include \"sys_io.h\"\n#include \"ethercat_map.h\"\n#include \"general.h\"\n#include \"control_word.h\"\n#include \"main.h\"\n#include \"sys_params.h\"\n\n#include \"control_word.h\"\n#include \"main.h\"\n#include \"drive_velocity.h\"\n#include \"sys_params.h\"\n\n#include \"main.h\"\n#include \"standup_reliable.h\"\n#include \"log_data.h\"\n// #include \"lqr_sim.h\"\n#include \"pos.h\"\n\n/* For this example we only have two states */\ntypedef enum State\n{\n    NONE = 0,\n    INITIALIZED,\n} State;\n\n#define PERIOD_MS 1\n\n// Maximum safe x distance the pendulum cart can go before we stop the algorithm and return to center\n#define MAX_X_SAFE (MAX_X_DISPL - X_SAFETY_BUFFER)\n\n// Flag to trigger controller to go into safety mode, stop balancing or swingup algorithm,\n// and bring cart back to center before resetting\nbool x_safety_error_triggered = false;\n\n/* Some globals */\nstatic waxi_dlr_factory_t factory = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic waxi_dlr_user_t ether_in_iod = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic waxi_dlr_user_t ether_out_iod = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic waxi_dlr_user_t logger_iod = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic int array_index = 0;\n\n// static waxi_dlr_variant_t memory_map = WAXI_INVALID_HOST_DATA_HANDLE;\nstatic State state = NONE;\n\nsys_machine_input_t sys_machine_in = INIT_SYS_MACHINE_INPUT();\n\n// For Pit Pendulum, changed from P2 to P1\nsys_drive_input_t sys_drive_in = INIT_SYS_DRIVE_INPUT(P1);\nsys_machine_output_t sys_machine_out = INIT_SYS_MACHINE_OUTPUT();\n\n// P2 changed to P1\nsys_drive_output_t sys_drive_out = INIT_SYS_DRIVE_OUTPUT(P1);\n\ngeneral_drive_out_t gen_drive_out = INIT_GENERAL_DRIVE_OUT();\nconst logicaltime_t cycletime = PERIOD_MS * MSEC;\ngeneral_machine_context_t gen_machine_ctx_p1 =\n    INIT_GENERAL_MACHINE_CTX(cycletime);\n\ngeneral_axis_out_t gen_axis_out = INIT_GENERAL_AXIS_OUT();\nstandup_context_t su_ctx = INIT_STANDUP_CONTEXT(cycletime);\n\nlqr_sim_context_t lqr_ctx = INIT_LQR_SIM_CONTEXT(cycletime);\n\nstandup_output_t standup_out;\n\nmain_output_t main_out = INIT_MAIN_OUTPUT();\n\nlqr_sim_outputs_t lqr_sim_out = INIT_LQR_SIM_OUTPUT();\n\npos_output_t pos_out = INIT_POS_OUTPUT();\npos_context_t pos_ctx = INIT_POS_CONTEXT(cycletime);\n\nenable_flags flags;\n\nui_status_machine_t machine_status;\nui_status_pendulum_t p1_status;\nui_event_enable_pendulum_t p1_enable_event;\nui_event_autorun_pendulum_t p1_autorun_event;\nui_event_move_pendulum_t p1_move_event;\nui_status_motion_t p1_motion_status;\n\ngeneral_drive_context_t gen_drive_ctx_p1 =\n    INIT_GENERAL_DRIVE_CONTEXT(cycletime);\n/* Static description of the ethercat input and output */\n// Changed these values to match the interface for the pendulum in Pittsburgh\nstatic const char *ether_in_address =\n    \"fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/input\";\nstatic const char *ether_out_address =\n    \"fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/output\";\n/* The following data could also be generated or dynamically interpreted by\n * using the memory map*/\n#ifndef ether_map_revision\n#define ether_map_revision 1566571575\n#endif\n//static const uint32_t ether_map_revision = 1566571575;\n//2550826156;\n\n/*\nstatic const char *ether_in_address =\n    \"fieldbuses/ethercat/master/instances/a620x1/realtime_data/input\";\nstatic const char *ether_out_address =\n    \"fieldbuses/ethercat/master/instances/a620x1/realtime_data/output\";\nstatic const uint32_t ether_map_revision = 1307587946;\n*/\n\n/*Todo: Add code to create handle to the logger nodes and in balanced mode start logging necessary data*/\nstatic const char *dl_logger_address = \"sdk/cpp/datalayer/pendulum-logging/output\";\n\nuint64_t packet_counter = 0;\nuint32_t iteration = 0;\n\n\n/*  Initialization functions to the factory, datalayer logger nodes, ethercat input and output nodes\n    Also initializes the system parameters and the drive output parameters\n*/\n\nstatic bool init()\n{\n    const char *context = \"init\";\n\n    printf(\"Initialising Wasm callable...\\n\");\n\n    factory = waxi_service_dlr_factory();\n    if (WAXI_INVALID_HOST_DATA_HANDLE == factory)\n    {\n        LOG_ERROR(context, \"Could not get the data layer factory\\n\");\n        return false;\n    }\n\n    WAXIDlrResult res = waxi_dlr_factory_open_memory(\n        factory, &ether_in_iod, sizeof(ether_in_iod), ether_in_address);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not open memory '%s'\", ether_in_address);\n        return false;\n    }\n    res = waxi_dlr_factory_open_memory(factory, &ether_out_iod, sizeof(ether_out_iod),\n                                       ether_out_address);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not open memory '%s'\", ether_out_address);\n        return false;\n    }\n    res = waxi_dlr_factory_open_memory(factory, &logger_iod, sizeof(logger_iod), dl_logger_address);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not open memory '%s'\", dl_logger_address);\n        return false;\n    }\n    // Initialize system parameters\n    sys_reset_machine_ouput(&sys_machine_out);\n    sys_reset_drive_output(&sys_drive_out);\n    ethercat_write(ether_out_iod, &sys_machine_out, &sys_drive_out, ether_map_revision);\n\n    p1_enable_event.b_Dr_AF = false;\n    p1_enable_event.present = true;\n    p1_autorun_event.present = true;\n    p1_autorun_event.b_Au_Start = true;\n\n    iteration = 0;\n    x_safety_error_triggered = false;\n\n    // Initialize datalayer logger\n    set_end_of_process_flag(logger_iod, LOG_BUFFER_NOT_READY);\n    array_index = 0;\n\n    return true;\n}\n\n/* Teardown */\nstatic void deinit()\n{\n    const char *context = \"deinit\";\n    printf(\"De-initialising Wasm callable...\\n\");\n\n    // Stop drive controller with a zero velocity command before the task is de-initialized\n    reset_drive(&sys_drive_out);\n    WAXIDlrResult res = ethercat_write(ether_out_iod, &sys_machine_out, &sys_drive_out, ether_map_revision);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not write to ethercat when stopping linear actuator at end of task\");\n    }\n\n    // Put drive controller in Ab state so it is no longer sending power to the linear actuator\n    pou_drive_control_word(true, false, sys_drive_in.Dr_Status, &sys_drive_out.Dr_Control);\n    res = ethercat_write(ether_out_iod, &sys_machine_out, &sys_drive_out, ether_map_revision);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not write to ethercat when setting drive controller to Ab state at end of task\");\n    }\n\n    // Write LOG_END_OF_DATA value to the iteration datalayer to signal end of logging\n    log_data (array_index, logger_iod, LOG_END_OF_DATA, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0);\n\n    // Set log buffer ready to allow datalayer reader to get the last batch of data\n    if (array_index < ARRAY_SIZE / 2)\n    {\n        set_end_of_process_flag(logger_iod, LOG_FRONT_BUFFER_READY);\n    } else\n    {\n        set_end_of_process_flag(logger_iod, LOG_BACK_BUFFER_READY);\n    }\n\n    res = waxi_dlr_factory_close_memory(factory, ether_out_iod);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not close output memory '%d'\", ether_out_iod);\n    }\n\n    res = waxi_dlr_factory_close_memory(factory, ether_in_iod);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not close input memory '%d'\", ether_in_iod);\n    }\n}\n\n#define MAX_SETPONTS 4\nstatic const double setpoints[MAX_SETPONTS] = {0.0, 0.05, -0.09, 0.09};\nstatic int setpoint_index = 0;\nstatic int dl_write_counter = 0;\nint balanced_counter = 0;\n\nbool stays_balanced(bool is_balanced)\n{\n    if (is_balanced)\n    {\n        balanced_counter++;\n        if (balanced_counter >= 1500)\n            return true;\n    }\n    else\n    {\n        balanced_counter = 0;\n    }\n    return false;\n}\n\nstatic uint64_t ts2ns(struct timespec *ts)\n{\n    return ts->tv_sec * 1000000000 + ts->tv_nsec;\n}\n\nstatic int toggle_flag = false;\nbool already_balanced = false;\nint setpoint_counter = 0;\nstatic bool start_new_iteration = false;\n\n/* Tick */\nstatic WAXIDlrResult tick()\n{\n    const char *context = \"pend_mono_tick\";\n    WAXIDlrResult res = WAXI_DL_OK;\n    double velocity = 0.0;\n    bool drive_release = false;\n    struct timespec ts;\n    clock_gettime(CLOCK_REALTIME, &ts);\n    uint64_t timestamp = ts2ns(&ts);\n    uint16_t pendulum_state = LOG_SWING_UP;\n\n    // Clear the datalayer logger flag on the first cycle\n    if (packet_counter == 0)\n    {\n        set_end_of_process_flag(logger_iod, LOG_BUFFER_NOT_READY);\n    }\n\n   // For Pit Pendulum changed this to P1 instead of P2\n    res = ethercat_read(ether_in_iod, &sys_machine_in, &sys_drive_in, P1, ether_map_revision);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not read input memory\");\n        return res;\n    }\n\n    if (!toggle_flag) // simulate a rising edge for these signals and do the initial calibration\n    {\n        toggle_flag = true;\n        gen_drive_ctx_p1.prev_x =\n            sys_drive_in.Dr_PosIW / 1E7; // init prev_x\n        gen_drive_ctx_p1.prev_v = 0.0;\n        gen_drive_ctx_p1.prev_theta_raw = sys_drive_in.DG_Ana - 21757;\n    }\n\n    bool ST_Ein =\n        pou_general_machine(&gen_machine_ctx_p1, &sys_machine_in,\n                            &sys_machine_out, &machine_status);\n\n    // For Pit Pendulum set ST_Ein to true to enable drive control and bypass safety checks\n    ST_Ein = true;\n    p1_enable_event.b_Dr_AF = true;\n\n    // The code below is used to simulate the rising edge of the enable signal and makes sure STEIN is true for the first 5000 packets\n    // Please feel free to remove this code if you do not need this feature. This also leads to a slight delay before the actual swing up starts\n\n    // We don't need to do this delay for the Pittsburgh pendulum.\n/*\n#if 1\n    if (packet_counter == 5000 && ST_Ein)\n    {\n        p1_enable_event.present = false;\n        p1_enable_event.b_Dr_AF = false;\n    }\n    else if (packet_counter > 5500 && ST_Ein)\n    {\n        p1_enable_event.present = true;\n        p1_enable_event.b_Dr_AF = true;\n    }\n#endif\n*/\n    drive_release = p1_enable_event.present && ST_Ein && p1_enable_event.b_Dr_AF;\n\n    pou_general_drive(&gen_drive_ctx_p1, &p1_general_params, &sys_drive_in,\n                      &p1_status, &gen_drive_out);\n    // LOG_TRACE(context, \"Drive out: %f, %f %f\", gen_drive_out.theta_ist, gen_drive_out.x_ist, gen_drive_out.v_ist);\n\n    pou_general_axis(ST_Ein, &p1_enable_event, &gen_axis_out);\n    packet_counter++;\n    {\n        pou_main(&gen_drive_out, &p1_manual_params, &p1_standup_params,\n                 &standup_out, &p1_autorun_event, &p1_move_event,\n                 &flags, &main_out);\n\n        // Check to see if the pendulum cart exceeded the linear x-axis safety buffer\n        if (gen_drive_out.x_ist > MAX_X_SAFE || gen_drive_out.x_ist < -(MAX_X_SAFE)) {\n            x_safety_error_triggered = true;\n        }\n\n        // LOG_TRACE(context, \"pos_mode: %d, flags.su: %d flags.lqr: %d, flags.pos:%d\", pos_mode, flags.su_enable, flags.lqr_enable, flags.pos_enable);\n\n        if (x_safety_error_triggered)\n        {\n            pendulum_state = LOG_RESET;\n\n            // Cart is to the right of center so send a small negative velocity command to bring it back to the left\n            if (gen_drive_out.x_ist > 0.001)\n            {\n                velocity = -0.05;\n            }\n            // Cart is to the left of center so send a small positive velocity command to bring it back to the right\n            else if (gen_drive_out.x_ist < -0.001)\n            {\n                velocity = 0.05;\n            }\n            // Cart is back to center so clear the error, stop the cart, and try to swing up again\n            else\n            {\n                velocity = 0.0;\n                x_safety_error_triggered = false;\n                su_ctx.first_push = true;\n                standup_out.su_pndlum_ok = false;\n                flags.su_enable = true;\n                flags.lqr_enable = false;\n\n                // Reset to move pendulum to first setpoint when it is balanced again\n                setpoint_counter = 0;\n                setpoint_index = 0;\n                iteration = (iteration + 1);\n            }\n        }\n        else {\n            if (flags.su_enable && !flags.lqr_enable)\n            {\n                pendulum_state = LOG_SWING_UP;\n\n                velocity =\n                    pou_standup_rel(&gen_drive_out, &su_ctx, &su_sim_params,\n                                    &standup_out, &p1_motion_status);\n            }\n            if ((standup_out.su_pndlum_ok == true) || flags.lqr_enable)\n            {\n                pendulum_state = LOG_BALANCE;\n\n                velocity =\n                    pou_lqr_sim(&lqr_ctx, &p1_lqr_sim_params, &gen_drive_out,\n                                main_out.x_soll, &lqr_sim_out);\n\n                flags.su_enable = false;\n\n                /*This makes sure we dont start moving the pendulum until it stays balanced for a while*/\n                if (!already_balanced)\n                {\n                    already_balanced = stays_balanced(standup_out.su_pndlum_ok);\n                }\n                else\n                {\n                    double delta_position = 0.009;\n\n                    // Change the setpoint when the current setpoint is reached and stable\n                    if (gen_drive_out.x_ist < (main_out.x_soll + delta_position) && gen_drive_out.x_ist > (main_out.x_soll - delta_position))\n                    {\n                        // Stay at this setpoint for 100 cycles\n                        setpoint_counter++;\n                        if (setpoint_counter >= 100)\n                        {\n                            setpoint_index = (setpoint_index + 1) % MAX_SETPONTS;\n                            main_out.x_soll = setpoints[setpoint_index];\n                            setpoint_counter = 0;\n\n                            // All setpoints have been reached ?\n                            if (setpoint_index == 0)\n                            {\n                                iteration = (iteration + 1);\n                            }\n                        }\n                    } else\n\t\t    {\n\t\t        setpoint_counter = 0;\n\t\t    }\n                }\n            }\n        }\n    }\n\n    // Log data to datalayer for every cycle, regardless of system state\n    log_data (array_index, logger_iod, pendulum_state, iteration, timestamp,\n              main_out.x_soll, gen_drive_out.x_ist, gen_drive_out.v_ist,\n              gen_drive_out.theta_ist, gen_drive_out.theta_d_ist);\n    array_index = (array_index + 1);\n\n    // If we filled the first half of the datalayer buffer, signal that it is ready to be read\n    if (array_index == ARRAY_SIZE / 2)\n    {\n        set_end_of_process_flag(logger_iod, LOG_FRONT_BUFFER_READY);\n    }\n\n    // If we filled the second half of the datalayer buffer, signal that it is ready to be read\n    // and loop back to using the first half of the buffer\n    if (array_index >= ARRAY_SIZE)\n    {\n        set_end_of_process_flag(logger_iod, LOG_BACK_BUFFER_READY);\n        array_index = 0;\n    }\n\n    sys_drive_out.Dr_VelSW = velocity * 60000 * 1000;\n\n    pou_drive_control_word(ST_Ein, gen_axis_out.s_Dr_AF, sys_drive_in.Dr_Status, &sys_drive_out.Dr_Control);\n\n    // LOG_TRACE(context, \"Drive in: %d  Drive control word generated: %d vel:%d, input drive release: %d \\n\", sys_drive_in.Dr_Status, sys_drive_out.Dr_Control, sys_drive_out.Dr_VelSW, drive_release);\n    res = ethercat_write(ether_out_iod, &sys_machine_out, &sys_drive_out, ether_map_revision);\n    if (res != WAXI_DL_OK)\n    {\n        LOG_ERROR(context, \"Could not write to ethercat\");\n        return res;\n    }\n\n    return res;\n}\n\n\n\n//The scheduler invokes this function every cycle\n//Do not change the code here. This is standard code that is used to interact with the ctrlX Scheduler\n\n__attribute__((export_name(\"execute\"))) waxi_SchedEventResponse execute(\n    const waxi_SchedEventType event,\n    const waxi_SchedEventPhase phase,\n    const waxi_dlr_variant_t param)\n{\n    const char *context = \"execute\";\n    switch (event)\n    {\n    case WAXI_SCHED_EVENT_TICK:\n        // Just to be sure about the scheduler behavior\n        assert(WAXI_SCHED_EVENT_PHASE_NONE == phase);\n        assert(INITIALIZED == state);\n        if (INITIALIZED == state)\n        {\n            WAXIDlrResult res = tick();\n            if (res != WAXI_DL_OK)\n            {\n                LOG_ERROR(context, \"Tick failed\\n\");\n            }\n        }\n        return WAXI_SCHED_EVENT_RESP_OKAY;\n\n    case WAXI_SCHED_EVENT_SWITCH_TO_OPERATING:\n        switch (phase)\n        {\n        case WAXI_SCHED_EVENT_PHASE_BEGIN:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_EXECUTE:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_END:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        default:\n            // This should never happen\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        }\n\n    case WAXI_SCHED_EVENT_SWITCH_TO_SETUP:\n        switch (phase)\n        {\n        case WAXI_SCHED_EVENT_PHASE_BEGIN:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_EXECUTE:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_END:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        default:\n            // This should never happen\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        }\n\n    case WAXI_SCHED_EVENT_SWITCH_TO_SERVICE:\n        switch (phase)\n        {\n        case WAXI_SCHED_EVENT_PHASE_BEGIN:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_EXECUTE:\n            if (NONE == state)\n            {\n                init();\n                state = INITIALIZED;\n            }\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_END:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        default:\n            // This should never happen\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        }\n\n    case WAXI_SCHED_EVENT_SWITCH_TO_EXIT:\n        switch (phase)\n        {\n        case WAXI_SCHED_EVENT_PHASE_BEGIN:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_EXECUTE:\n            if (INITIALIZED == state)\n            {\n                deinit();\n                state = NONE;\n            }\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_END:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        default:\n            // This should never happen\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        }\n\n    case WAXI_SCHED_EVENT_TASK_PROPERTIES_CHANGE:\n        switch (phase)\n        {\n        case WAXI_SCHED_EVENT_PHASE_BEGIN:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_EXECUTE:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        case WAXI_SCHED_EVENT_PHASE_END:\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        default:\n            // This should never happen\n            return WAXI_SCHED_EVENT_RESP_OKAY;\n        }\n\n    case WAXI_SCHED_EVENT_GET_CURRENT_STATE:\n        assert(WAXI_SCHED_EVENT_PHASE_NONE == phase);\n        return WAXI_SCHED_EVENT_RESP_OKAY;\n\n    default:\n        // This should never happen\n        return WAXI_SCHED_EVENT_RESP_OKAY;\n    }\n}\n",
+    "standup_reliable.c": "/* global includes */\r\n#include <math.h>\r\n\r\n/* local includes */\r\n#include \"common.h\"\r\n#include \"general.h\"\r\n#include \"lqrsim.h\"\r\n#include \"plclib.h\"\r\n#include \"sys_params.h\"\r\n\r\n/* self include */\r\n#include \"standup_reliable.h\"\r\n\r\n/* Debugging */\r\n#include <stdio.h>\r\n\r\n#define DEBUG 0\r\n\r\ndouble sign_double(double x) {\r\n    if (x >= 0.0) return 1.0;\r\n    if (x < 0.0) return -1.0;\r\n    return 0.0;  // This should never happen\r\n}\r\n\r\nstatic void compute_velocity_su(const su_sim_params_t *params,\r\n                         standup_output_t *standup_out,\r\n                         const logicaltime_t cycletime) {\r\n    double cycletime_secs = cycletime * 0.001;\r\n    // integrate force to become a velocity value: v = u + a*t where a = cmd_su,\r\n    // t = cycletime\r\n    standup_out->v_soll =\r\n        standup_out->v_soll + standup_out->a_soll * cycletime_secs;\r\n    standup_out->v_soll = fmin(params->v_max, standup_out->v_soll);\r\n    standup_out->v_soll = fmax(-params->v_max, standup_out->v_soll);\r\n    return;\r\n}\r\n\r\nstatic void compute_acceleration_su(const general_drive_out_t *gen_drive_out,\r\n                             const su_sim_params_t *params,\r\n                             standup_output_t *standup_out\r\n                            ) {\r\n    double theta, theta_d, x, safety_xtol;\r\n    double v, safety_vtol;\r\n\r\n    safety_xtol = 0.95;  // percentage of max_xdisplay for asymptote of\r\n                         // restricted cart length control\r\n    safety_vtol =\r\n        0.95;  // percentage of max velocity for velocity well asymptote\r\n\r\n    theta = gen_drive_out->theta_ist;\r\n    theta_d = gen_drive_out->theta_d_ist;\r\n    x = gen_drive_out->x_ist;  // x=0 in the middle\r\n    v = gen_drive_out->v_ist;\r\n\r\n    // Remove jittering at small velicities by putting it to 0\r\n    double theta_d_zero = (fabs(theta_d) < 0.001) ? 0.0 : 1.0;\r\n    double v_zero = (fabs(v) < 0.001) ? 0.0 : 1.0;\r\n\r\n    double ext_costheta = -1.0; //(fabs(theta) > ( p1_general_params.calibrated_PI / 20) ) ? -1.0 : 1.0;\r\n\r\n    double sign_thetadotcostheta = sign_double(theta_d * cos(theta)) * theta_d_zero;\r\n    //double sign_thetadotcostheta = sign_double(theta_d * ext_costheta) * theta_d_zero;\r\n    double sign_x = sign_double(x);\r\n    double sign_v = sign_double(v) * v_zero;\r\n\r\n    // Control command for pure energy control\r\n    double cmd_su_acc = params->K_su * sign_thetadotcostheta;\r\n\r\n    // Control command for restricted cart length\r\n    double frac_relpos = fabs(x) / (safety_xtol * params->max_xdispl);\r\n    double minvalue_pos = (0.9999 < frac_relpos) ? 0.9999 : frac_relpos;\r\n    double cmd_cartwell = params->K_cw * sign_x * log(1 - minvalue_pos);\r\n\r\n    // Control command for velocity well\r\n    double frac_relvel = fabs(v) / (safety_vtol * params->v_max);\r\n    double minvalue_vel = (0.9999 < frac_relvel) ? 0.9999 : frac_relvel;\r\n    double cmd_velwell = params->K_vw * sign_v * log(1 - minvalue_vel);\r\n\r\n    // Combine to find cmd acceleration\r\n    double cmd_su = cmd_su_acc + cmd_cartwell + cmd_velwell;\r\n\r\n    standup_out->a_soll = cmd_su;\r\n\r\n    return;\r\n}\r\n\r\ndouble pou_standup_rel(const general_drive_out_t *gen_drive_out,\r\n                     standup_context_t *ctx,\r\n                     const su_sim_params_t *params,\r\n                     standup_output_t *standup_out,\r\n                     ui_status_motion_t *ui_status_motion) {\r\n    // Compute acceleration command\r\n    compute_acceleration_su(gen_drive_out, params, standup_out);\r\n\r\n    // Compute cart velocity\r\n    compute_velocity_su(params, standup_out, ctx->dt);\r\n\r\n    double velocity = 0.0; \r\n\r\n    // First gentle push\r\n    if (ctx->first_push){\r\n        velocity = 1.0;\r\n        ctx->first_push = false;\r\n    }\r\n    else {\r\n        velocity = standup_out->v_soll;\r\n    }\r\n\r\n    // if (fabs(gen_drive_out->theta_ist < 0.5))\r\n    //\tprintf(\"Theta_ist %f\\n\", gen_drive_out->theta_ist);\r\n    \r\n    if (fabs(gen_drive_out->x_ist) <= 0.8 * params->max_xdispl) { // Activate switch only if far from end of rail\r\n\r\n        if ((fabs(gen_drive_out->theta_ist) < 0.07) && (fabs(gen_drive_out->theta_d_ist) < 0.05)) {\r\n           // printf(\"Angle in interval, setting flags su_pendulum_ok --new \\n\");\r\n            standup_out->su_pndlum_ok = true;\r\n            ui_status_motion->standup_ready = true;\r\n            // printf(\"Yay! Standup done!%lf\\n\", gen_drive_out->theta_ist);\r\n        }\r\n\r\n    }\r\n\r\n    // if(standup_out->su_ready) printf(\"ready\\n\");\r\n    ctx->prev_enable = true;\r\n    return velocity;\r\n}\r\n",
+    "lqrsim.c": "/* global includes */\n#include <math.h>\n#include <unistd.h>\n\n/* local includes */\n#include \"sys_params.h\"\n#include \"general.h\"\n// #include \"main.h\"\n// #include \"main_context.h\"\n/* self include */\n#include \"lqrsim.h\"\n\n/* Debugging */\n#include <stdio.h>\n\n#include <time.h>\n#include <errno.h>    \n\n#define DELAYMODE false\n#define GOODRANGEMODE true\n\n\ndouble reference_pt (lqr_sim_params_t *params, const general_drive_out_t *gen_drive_out) {\n\n    // Iterate through the following setpoints\n    // There is hysteresis in the cart position, this should be checked. For now, hardcoded fix with different setpoints\n    const int NUM_XMODES = 4;\n    double xref[NUM_XMODES] = {gen_drive_out->x_ist, 0.0, 0.08, -0.12};\n\n    // Update counters for updating setpoint\n    if (params->counter_xref < 4000)\n        params->counter_xref++;\n    if (params->counter_xref == 250) // First stay in current position and start balancing, then move to 0\n        params->xref_switch = 1;\n    if (params->counter_xref == 4000) { // First switch after 4 seconds\n        params->xref_switch = 2;\n        params->counter_xref++;\n    }\n\n    // Change setpoint when approaching end of rail\n    if ((params->xref_switch == (NUM_XMODES - 2)) && (gen_drive_out->x_ist >= 0.45 * xref[NUM_XMODES - 2]))\n        params->xref_switch = NUM_XMODES - 1;\n    // There is hysteresis in the cart position, this should be checked. For now, hardcoded fix with 0.8\n    if (params->xref_switch == (NUM_XMODES - 1) && (gen_drive_out->x_ist <= 0.4 * xref[NUM_XMODES - 1]))\n        params->xref_switch = NUM_XMODES - 2;\n\n    // Assign setpoint\n    double xsoll = xref[params->xref_switch];\n    return xsoll;\n}\n\n\ndouble reference_pt_old(lqr_sim_params_t *params, const general_drive_out_t *gen_drive_out) {\n\n    // Iterate through the following setpoints\n    // There is hysteresis in the cart position, this should be checked. For now, hardcoded fix with different setpoints\n    double xref[] = {0.0, 0.08, -0.12};\n\n    // Wait 4 seconds in 0 before starting the setpoint move\n    // Update counters for updating setpoint\n    if (params->counter_xref < 4000)\n        params->counter_xref++;\n    if (params->counter_xref == 4000) { // First switch after 4 seconds\n        params->xref_switch = 1;\n        params->counter_xref++;\n    }\n\n    // Change setpoint when approaching end of rail\n    if ((params->xref_switch == 1) && (gen_drive_out->x_ist >= 0.9 * xref[1]))\n        params->xref_switch = 2;\n    // There is hysteresis in the cart position, this should be checked. For now, hardcoded fix with 0.8\n    if (params->xref_switch == 2 && (gen_drive_out->x_ist <= 0.8 * xref[2]))\n        params->xref_switch = 1;\n\n    // Assign setpoint\n    double xsoll = xref[params->xref_switch];\n    return xsoll;\n}\n\n\nstatic void compute_force(lqr_sim_params_t *params, const general_drive_out_t *gen_drive_out, const double xsoll, \n                        lqr_sim_outputs_t *lqr_sim_out) {\n\n    double A1, A2, A3, A4, F_lqr;\n    //printf(\"x_ist=%f x_soll=%f v_ist=%f\\n\", gen_drive_out->x_ist, main_out->x_soll, gen_drive_out->v_ist);\n    A1 = params->K_x * (gen_drive_out->x_ist - xsoll);\n    A2 = params->K_v * gen_drive_out->v_ist;\n    A3 = params->K_t * gen_drive_out->theta_ist;\n    A4 = params->K_td * gen_drive_out->theta_d_ist;\n\n    // Original LQR parameters\n    // 89.0 97.0 361.0 40.0\n\n    // Switch to softer LQR parameters (together with mass change in velocity function)\n    if (params->counter_goodrange >= 500) {\n        A1 =  100.0 * (gen_drive_out->x_ist - xsoll);\n        A2 = (fabs(gen_drive_out->v_ist) > 0.0001) ? 54.0 * gen_drive_out->v_ist : 0.0;\n        A3 = (fabs(gen_drive_out->theta_ist) > 0.005) ? 274.0 * gen_drive_out->theta_ist : 0.0;\n        A4 = 36.0 * gen_drive_out->theta_d_ist;\n    }\n\n    // Original LQR algorithm formula is\n    // F = A1 + A2 - A3 - A4\n    // Pgh Pendulum angle sign is reversed\n    // (clockwise is positive, counterclockwise is negative)\n    // So we have to reverse the signs of parameters A3 and A4\n    F_lqr = A1 + A2 + A3 + A4;\n    F_lqr = fmax (-params->F_max, F_lqr);\n    F_lqr = fmin ( params->F_max, F_lqr);\n       \n\n    lqr_sim_out->LQ_F_soll =  F_lqr;\n}\n\nstatic void compute_velocity(lqr_sim_params_t *params, const general_drive_out_t *gen_drive_out, const double xsoll,\n                         lqr_sim_outputs_t *lqr_sim_out, const logicaltime_t cycletime) {\n\n    double cycletime_secs = cycletime * 0.001;  \n\n    // Update old velocity value\n    lqr_sim_out->SI_v_soll_old = lqr_sim_out->SI_v_soll;\n\n    // integrate force to become a velocity value: v = u + a*t where a = F/m,  t = cycletime\n    lqr_sim_out->SI_v_soll = lqr_sim_out->SI_v_soll_old + lqr_sim_out->LQ_F_soll * (cycletime_secs / (params->m_axis));\n\n    // Count time within good range\n    if ((params->counter_goodrange < 500) && GOODRANGEMODE) {\n        params->counter_goodrange++;\n    }\n    if (params->counter_goodrange >= 500) { // Switch to softer LQR; for the Pgh pendulum we reduced the softening factor from 5.0 to 3.9 to reduce vibrations\n        lqr_sim_out->SI_v_soll = lqr_sim_out->SI_v_soll_old + lqr_sim_out->LQ_F_soll * (cycletime_secs / (3.9 + params->m_axis));\n    }\n\n    // Reset counter when exceeding good range\n    if ((fabs(gen_drive_out->x_ist - xsoll) > 0.05) || (fabs(gen_drive_out->theta_ist) > 0.05)) {\n        //params->counter_goodrange = 0;\n    }\n\n    // Saturate velocity\n    lqr_sim_out->SI_v_soll = fmin (params->v_max, lqr_sim_out->SI_v_soll);\n    lqr_sim_out->SI_v_soll = fmax (-params->v_max, lqr_sim_out->SI_v_soll);\n    return;\n}\n\ndouble pou_lqr_sim(const lqr_sim_context_t *ctx, lqr_sim_params_t *params, \n                            const general_drive_out_t *gen_drive_out, const double xsoll,\n                         lqr_sim_outputs_t *lqr_sim_out) {\n\n    double velocity = 0.0; \n\n    compute_force(params, gen_drive_out, xsoll, lqr_sim_out);\n\n    compute_velocity (params, gen_drive_out, xsoll, lqr_sim_out, ctx->dt);\n    velocity = lqr_sim_out->SI_v_soll;\n\n    return velocity;\n}\n\n",
+    "log_data.c": "#include \"log_data.h\"\nstatic WAXIDlrResult waxi_end_access(waxi_dlr_user_t iod) {\n    WAXIDlrResult res = waxi_dlr_user_end_access(iod);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(\"waxi_end_access\", \"Could not end access to input memory '%d'\", iod);\n    }\n    return res;\n}\n\nvoid log_data(const int index, const waxi_dlr_user_t logger_handle, const uint16_t pendulum_state, const uint32_t iteration, uint64_t timestamp, \n              const double target_x, const double current_x, const double velocity, const double angle, const double angular_velocity) {\n    const char *context = \"log_data\";\n    const uint32_t revision = 0;\n\n    /*Datalayer map\n\t    uint16_t pendulum_state[ARRAY_SIZE];\n        uint32_t iteration[ARRAY_SIZE]; //\n        uint64_t timestamp[ARRAY_SIZE]; // of size\n        double target_x[ARRAY_SIZE]; // of size\n        double position[ARRAY_SIZE]; //\n        double velocity[ARRAY_SIZE]; //\n        double angle[ARRAY_SIZE]; //\n        double angular_velocity[ARRAY_SIZE];\n     */\n    int offset = 0;\n    int prev_record_size = 0;\n    if (index >= ARRAY_SIZE) // do not log more than ARRAY_SIZE records\n    {\n        return;\n    }\n\n    WAXIDlrResult res = waxi_dlr_user_begin_access(logger_handle, revision);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not begin access to input memory '%d'\",\n                  logger_handle);\n        return;\n    }\n\n    offset = sizeof(pendulum_state) * index;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &pendulum_state, sizeof(pendulum_state));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size = sizeof(pendulum_state);\n    offset = sizeof(iteration) * index + ARRAY_SIZE * prev_record_size;\n\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &iteration, sizeof(iteration));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(iteration);\n    offset = index * sizeof(timestamp) + ARRAY_SIZE * prev_record_size;\n\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &timestamp, sizeof(timestamp));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(timestamp);\n\n    offset = index * sizeof(target_x) + ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &target_x, sizeof(target_x));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(target_x);\n    offset = index * sizeof(current_x) + ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &current_x, sizeof(current_x));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(current_x);\n    offset = index * sizeof(velocity) + ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &velocity, sizeof(velocity));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(velocity);\n    offset = index * sizeof(angle) +  ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &angle, sizeof(angle));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    prev_record_size += sizeof(angle);\n    offset = index * sizeof(angular_velocity) + ARRAY_SIZE * prev_record_size;\n    res = waxi_dlr_user_write_bytes(logger_handle, offset, &angular_velocity, sizeof(angular_velocity));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    res = waxi_end_access(logger_handle);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not end access to input memory '%d'\", logger_handle);\n    }\n}\n\nuint16_t read_end_of_process_flag(const waxi_dlr_user_t logger_handle)\n{\n    const char *context = \"read_end_of_process_flag\";\n    const uint32_t revision = 0;\n    uint16_t end_of_process = 0;\n    int byte_offset = PROCESS_FLAG_BYTE_OFFSET;\n    WAXIDlrResult res = waxi_dlr_user_begin_access(logger_handle, revision);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not begin access to input memory '%d'\",\n                  logger_handle);\n        return 0;\n    }\n\n    res = waxi_dlr_user_read_bytes(logger_handle, byte_offset, &end_of_process, sizeof(end_of_process));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not read bytes  from  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return 0;\n    }\n    res = waxi_end_access(logger_handle);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not end access to input memory '%d'\", logger_handle);\n    }\n    return end_of_process;\n}\n\nvoid set_end_of_process_flag(const waxi_dlr_user_t logger_handle, uint16_t value)\n{\n    const char *context = \"set_end_of_process_flag\";\n    const uint32_t revision = 0;\n    WAXIDlrResult res = waxi_dlr_user_begin_access(logger_handle, revision);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not begin access to input memory '%d'\",\n                  logger_handle);\n        return;\n    }\n    int byte_offset = PROCESS_FLAG_BYTE_OFFSET;\n    res = waxi_dlr_user_write_bytes(logger_handle, byte_offset, &value, sizeof(value));\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not write bytes  to  memory '%d'\", logger_handle);\n        waxi_end_access(logger_handle);\n        return;\n    }\n    res = waxi_end_access(logger_handle);\n    if (WAXI_DL_OK != res)\n    {\n        LOG_ERROR(context, \"Could not end access to input memory '%d'\", logger_handle);\n    }\n    return;\n}\n",
+    "general.c": "/* global includes */\n#include <math.h>\n#include <stdlib.h>\n\n/* local includes */\n#include <stdio.h>\n\n#include \"plclib.h\"\n#include \"sys_io.h\"\n#include \"sys_params.h\"\n#include \"ui_io.h\"\n/* self include */\n#include \"general.h\"\n\n#define DEBUG 0\n\n#if 0\nstatic double calculate_theta_raw(const general_params_t *params,\n                                  const double DG_Ana) {\n    double theta_raw;\n    // offsPend = 21757\n    theta_raw = (double)(DG_Ana - params->offsPend);\n    // Gl\u00e4ttung theta\n    return theta_raw;\n}\n\nstatic double calculate_theta(general_drive_context_t *ctx,\n                              const general_params_t *params,\n                              const double theta_raw) {\n    // TODO: move magic constants to params\n    double theta_ist;\n    // theta_gl = 0.1,\n    if (DEBUG) printf(\"Init theta_raw: %f\\n\", ctx->prev_theta_raw);\n    ctx->prev_theta_raw = ctx->prev_theta_raw * (1.0 - params->theta_gl) +\n                          theta_raw * params->theta_gl;\n    if (DEBUG) printf(\"theta_raw: %f \\n\", theta_raw);\n    // calibrated_PI = 2.94836,\n    theta_ist =\n        -(ctx->prev_theta_raw / 32768.0) * 2 * params->calibrated_PI;  // rad\n\n    return theta_ist;\n}\n\n#endif\n\n/*\n    Pittsburgh specific function to calculate angle based on Pittsburgh pendulum encoder hardware\n    The Pgh encoder is a 13-bit singleturn absolute rotary encoder.\n    A full clockwise revolution (i.e. 2 pi radians) goes from 0 to 8191 and back to 0\n    Encoder data sheet:\n    https://www.pepperl-fuchs.com/usa/en/classid_362.htm?view=productdetails&prodid=24164\n*/\nstatic double calculate_theta_ist_axis2(general_drive_context_t *ctx, int encoder_counter_value, bool encoder_calibration) {\n    int prev_encoder_value;\n    int encoder_value;\n    //double encoder_temp;\n    double theta_n = 0.0;\n\n    // Load previous value\n    prev_encoder_value = ctx->prev_encoder_value;\n\n    if (ctx->set_calibration == true) { //encoder_calibration must be set to true only each time a new swing up is attempted [not in every period]\n        ctx->offset = PGH_ENCODER_BITMASK & encoder_counter_value;\n        printf(\"Encoder offset at start: %d \\n\", ctx->offset); //offset is the value of the encoder counter when the pendulum is in the down position\n        ctx->set_calibration = false;\n        ctx->encoder_overflow = 0;\n    }\n    // Shift into calibrated space\n    // Subtract offset from encoder value to shift so that the\n    // down position is counter value 0 and counter 4096 is fully upright\n    encoder_value = (PGH_ENCODER_BITMASK & encoder_counter_value) - ctx->offset;\n    \n    // If raw encoder value is less than the offset add 8192 to wrap the value around\n    if (encoder_value < 0) {\n        encoder_value += PGH_ENCODER_FULL_REV;\n    }\n\n    // For the angle calculation fully upright should be angle 0\n    // So subtract 4096 (AKA 1*Pi) before converting from the counter value to radians\n    encoder_value -= PGH_ENCODER_FULL_REV/2;\n    ctx->curr_encoder_value = encoder_value;\n    theta_n = (double) encoder_value*2*PGH_PI/PGH_ENCODER_FULL_REV;\n\n    // Update previous values\n    ctx->prev2_encoder_value = ctx->prev_encoder_value;\n    ctx->prev_encoder_value = encoder_value;\n    //printf(\"prev encoder val: %lld, theta_n = %lf \\n\", ctx->prev_encoder_value, theta_n);\n    return(theta_n);\n}\n\n/*\nstatic double calculate_theta_ist_axis2(general_drive_context_t *ctx, int encoder_counter_value, bool encoder_calibration) {\n    \n    //The new 16 bit encoder captures the entire 360 degree angle in 4000 steps\n    //It keeps incrementing the counter value until it reaches it max-data level of 65536\n    int value, selected_value, prev_encoder_value, overflow_corr;\n    double theta_n = 0.0;\n    //printf(\"Encoder counter value:%lld \\n\", encoder_counter_value);\n\n\n    // Load previous value\n    prev_encoder_value = ctx->prev_encoder_value;\n\n    // Check for encoder overflows\n    if (prev_encoder_value > 61436 && encoder_counter_value < 4000) {\n        ctx->encoder_overflow++;\n        //printf(\"Overflow ++ detected \\n\");\n    }\n    if (prev_encoder_value < 4000 && encoder_counter_value > 61536) {\n        ctx->encoder_overflow--;\n        //printf(\"Overflow -- detected \\n\");\n    }\n\n    if (ctx->set_calibration == true) { //encoder_calibration must be set to true only each time a new swing up is attempted [not in every period]\n        ctx->offset = encoder_counter_value;\n        printf(\"Encoder offset at start: %d \\n\", ctx->offset); //offset is the value of the encoder counter when the pendulum is in the upright position\n        ctx->set_calibration = false;\n        ctx->encoder_overflow = 0;\n    }\n\n#if 0 \n    int diff_value = abs(ctx->prev_encoder_value - encoder_counter_value);\n\n    //if (diff_value > 50)  \n       //printf(\"Previous value %d, current value %d \\n\", ctx->prev_encoder_value, encoder_counter_value);\n\n    // Filtering logic for encoder errors\n    if((((ctx->prev_encoder_value - encoder_counter_value > 50) && (prev_encoder_value < 65500))\n    || ((encoder_counter_value - ctx->prev_encoder_value > 50) && (encoder_counter_value < 65500))) && !ctx->encoder_error) {\n       \n        ctx->encoder_error = true;\n        //printf(\"!!!!!!!!!!!!!!!!!!!!ENCODER ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! \\n\");\n        //printf(\"Previous value %d, current value %d \\n\", ctx->prev_encoder_value, encoder_counter_value);\n        //encoder_counter_value = ctx->prev_encoder_value;\n    }\n    if (ctx->encoder_error && ctx->counting_errors < 50) // reset at second step\n    {\n        //printf(\"Previos 2 value %d, Previous value %d, current value %d \\n\", ctx->prev2_encoder_value, ctx->prev_encoder_value, encoder_counter_value);\n        ctx->counting_errors = ctx->counting_errors + 1;\n\n        if (ctx->counting_errors >= 50) {\n            ctx->encoder_error = false;\n            ctx->counting_errors = 0;\n        }\n            \n    }\n\n#endif\n\n    \n    overflow_corr = (ctx->encoder_overflow >= 0) ? (1536) : (-2464);\n\n    value = (encoder_counter_value + overflow_corr * ctx->encoder_overflow - ctx->offset) % 4000;\n    selected_value = (value + 4000) % 4000 - 2000;\n   \n   // takes value -2000 in vertical down position, 0 in upright, <0 left half and >0 right half\n\n    ctx->curr_encoder_value = selected_value;\n    theta_n =(double)  (selected_value * 2.0 * p1_general_params.calibrated_PI /4000.0);\n\n    // Update previous values\n    ctx->prev2_encoder_value = ctx->prev_encoder_value;\n    ctx->prev_encoder_value = encoder_counter_value;\n    //printf(\"prev encoder val: %lld, theta_n = %lf \\n\", ctx->prev_encoder_value, theta_n);\n    return(theta_n);\n}\n*/\n\n#if 0\nstatic double calculate_theta_d(const general_drive_context_t *ctx,\n                                const double theta_ist) {\n    double theta_d_ist;\n    double cycletime_secs = ctx->dt * 0.001;\n    theta_d_ist = (theta_ist - ctx->prev_theta) / cycletime_secs;\n    return theta_d_ist;\n}\n#endif \n\nstatic double calculate_theta_d_axis2(general_drive_context_t *ctx,\n                                const double theta_ist, const double p2_encoder_delta_k) {\n    double theta_d_ist;\n    double mod_compensation = 0;\n    double cycletime_secs = ctx->dt * 0.001;\n\n    // Compensate discontinuity of derivative of the modulus\n    if (theta_ist < -2 && ctx->prev_theta >= 2) {\n        mod_compensation = 2 * p2_general_params.calibrated_PI;\n    }\n    if (theta_ist >= 2 && ctx->prev_theta < -2) {\n        mod_compensation = -2 * p2_general_params.calibrated_PI;\n    }\n\n    theta_d_ist = (theta_ist - ctx->prev_theta + mod_compensation) / cycletime_secs;\n    \n    theta_d_ist = ctx->prev_theta_d * (1.0 - p2_encoder_delta_k) + theta_d_ist * p2_encoder_delta_k;\n    ctx->prev_theta_d = theta_d_ist; \n    return theta_d_ist;\n}\n\nstatic double calculate_x(const int32_t Dr_PosIW) {\n    return (double)((double)Dr_PosIW / (double)1E7);\n}\n\nstatic double calculate_v(const general_drive_context_t *ctx,\n                          const general_params_t *params, const double x_ist) {\n    double v_tmp;\n    double v_ist;\n    double cycletime_secs = ctx->dt * 0.001;\n    v_tmp = (x_ist - ctx->prev_x) / cycletime_secs;\n    v_ist = ctx->prev_v * (1.0 - params->v_gl) + v_tmp * params->v_gl;\n    return v_ist;\n}\n\nbool get_theta_180(general_drive_context_t *ctx, const general_params_t *params,\n                   const double theta_ist) {\n    bool theta_180_o;\n    // theta ca. 180\u00b0, theta_d ca. 0 rad/s\n    // theta_180_delay = 100 * MSEC,\n    // theta_180_epsilon = 0.235,\n    // if really close to the 180 degree or PI radian mark, set to true\n    if (fabs(theta_ist - 3.1415926) < params->theta_180_epsilon)\n        theta_180_o = true;\n    else\n        theta_180_o = false;\n\n    bool theta_180;\n    // If the pendulum stays at 180 degrees ie. in downward position for 100ms\n    // then return true\n    theta_180 = turn_on_with_delay(&(ctx->ton_theta_180), theta_180_o,\n                                   params->theta_180_delay);\n    return theta_180;\n}\n\nbool get_theta_d_0(general_drive_context_t *ctx, const general_params_t *params,\n                   const double theta_d_ist) {\n    /*\n    .theta_d_0_delay = 100 * MSEC,\n    .theta_d_0_epsilon = 0.03,\n    */\n    // if delta theta is very low, set nearby to true\n    bool nearby;\n    if (fabs(theta_d_ist) < params->theta_d_0_epsilon)\n        nearby = true;\n    else\n        nearby = false;\n\n    // if pendulum stays in same position for 100 msec, then return true\n    bool theta_d_0;\n    theta_d_0 = turn_on_with_delay(&(ctx->ton_theta_d_0), nearby,\n                                   params->theta_d_0_delay);\n    return theta_d_0;\n}\n\nstatic void get_status_drive(uint16_t Dr_Status,\n                             ui_status_pendulum_t *pendulum_status) {\n    pendulum_status->i_Dr_Error = GET_BIT(Dr_Status, 13);\n    pendulum_status->i_Dr_AF = GET_BIT(Dr_Status, 14);\n    pendulum_status->i_Dr_AEin = GET_BIT(Dr_Status, 15);\n}\n\nbool get_status_drive_release(uint16_t Dr_Status) {\n    return GET_BIT(Dr_Status, 15) && GET_BIT(Dr_Status, 14);\n}\n\nbool get_status_drive_error(uint16_t Dr_Status) {\n    return GET_BIT(Dr_Status, 13);\n}\n\n/* drive release, Antriebsfreigabe */\n// bool get_drive_release(general_context_t *ctx, const bool button_Dr_AF,\n//                        const bool ST_Ein, const bool s_Dr_AF) {\n//     /* button b_Dr_AF is a toogle button */\n//     bool rising = rising_edge_trigger(&(ctx->r_trig), button_Dr_AF);\n//     bool drive_release;\n//     if (ST_Ein) {\n//         if (rising)\n//             drive_release = !s_Dr_AF;\n//         else\n//             drive_release = s_Dr_AF;\n//     } else {\n//         drive_release = false;\n//     }\n//     return drive_release;\n// }\n\nvoid pou_general_axis(\n    const bool ST_Ein,\n    const ui_event_enable_pendulum_t *ui_event_pendulum_enable,\n    general_axis_out_t *gen_axis_out) {\n    gen_axis_out->ST_Ein = ST_Ein;\n    if (ST_Ein) {\n        if (ui_event_pendulum_enable->present)\n            gen_axis_out->s_Dr_AF = ui_event_pendulum_enable->b_Dr_AF;\n        // else no change if event is not present\n    } else {\n        gen_axis_out->s_Dr_AF = false;\n    }\n}\n\n// operation_mode_t get_operation_mode(const visu_drive_out_t *buttons,\n//                                     const bool ST_Ein,\n//                                     const general_drive_out_t *gen_drive_out,\n//                                     const general_axis_out_t *ax_out) {\n//     operation_mode_t op_mode;\n//     if (ST_Ein && ax_out->s_Dr_AF && !ax_out->Dr_Error) {\n//         op_mode = gen_drive_out->i_BA;\n//         if (gen_drive_out->i_BA == BA_IDLE) op_mode = BA_HAND;\n//         if (buttons->b_BA_Ha) op_mode = BA_HAND;\n//         if (buttons->b_BA_Au) op_mode = BA_AUTO;\n//     } else\n//         op_mode = BA_IDLE;\n//     return op_mode;\n// }\n\n// bool get_auto_start(const bool button_Au_Start, const operation_mode_t i_BA)\n// {\n//     // only true as long as the button_Au_Start is pressed\n//     // TODO: We should change this, to be true once switched on, and false\n//     when\n//     // switch off (on/off switch or a toggle button\n//     return (i_BA == BA_AUTO) && button_Au_Start;\n// }\n\nconst logicaltime_t general_debounce_delay = 50 * MSEC;\n\nbool pou_general_machine(general_machine_context_t *ctx, const sys_machine_input_t *const sys_machine_in,\n                         sys_machine_output_t *const sys_machine_out,\n                         ui_status_machine_t *ui_status_machine) {\n    // debouncing PNOZ_controller_on\n    // TODO: clarify the debouncing functionality, and addopt the test case\n\n    bool ctrl_off = turn_off_with_delay(&(ctx->tof), sys_machine_in->p_P_STEin, general_debounce_delay); \n    bool ST_Ein =\n       turn_on_with_delay(&(ctx->ton), ctrl_off, general_debounce_delay);\n    \n\n    /* output to PNOZ */\n    // bool ST_Ein = true;\n    bool fuses_ok = sys_machine_in->p_31F1OK && sys_machine_in->p_31F2OK &&\n                    sys_machine_in->p_31F4OK;\n    bool drives_ok = sys_machine_in->p_BTBA1A2;\n    bool emergency_stop = sys_machine_in->p_P_NABet;\n    sys_machine_out->p_PLC_OK = fuses_ok && drives_ok;\n    sys_machine_out->p_190K1 = !emergency_stop && fuses_ok && drives_ok;\n    sys_machine_out->p_190H2 = sys_machine_in->p_P_STEin;\n\n    /* output to application */\n    // Door open is handled by PNOZ and signaled to the UI\n    bool door_open = !sys_machine_in->p_P_TueZu;\n    ui_status_machine->i_ST_Ein = ST_Ein;\n    ui_status_machine->i_NotAus = emergency_stop;\n    ui_status_machine->i_SchutzTuer = door_open;\n    // ST_Ein = true;\n    //return sys_machine_in->p_P_STEin;\n    return ST_Ein;\n}\n\n\nvoid pou_general_drive(general_drive_context_t *ctx,\n                       const general_params_t *params,\n                       const sys_drive_input_t *sys_drive_in,\n                       ui_status_pendulum_t *ui_status_pendulum,\n                       general_drive_out_t *gen_drive_out) {\n    \n    // ui_status_machine->i_Dr_Error =\n    //     get_status_drive_error(sys_drive_in->Dr_Status);\n    // ui_status_machine->i_Dr_AF =\n    //     get_status_drive_release(sys_drive_in->Dr_Status);\n\n\n    \n\n   //bool encoder_calibration = true; \n\n    get_status_drive(sys_drive_in->Dr_Status, ui_status_pendulum);\n\n    //double theta_raw = calculate_theta_raw(params, sys_drive_in->DG_Ana);\n    //printf(\"Counter: %ld\\n\", sys_drive_in->encoder_counter);\n    gen_drive_out->theta_ist = calculate_theta_ist_axis2(ctx, sys_drive_in->encoder_counter, ctx->set_calibration);\n//    printf(\"Computed angle: %f\\n\", gen_drive_out->theta_ist);\n    //gen_drive_out->theta_ist = calculate_theta(ctx, params, theta_raw);\n\n    // Calculate delta theta\n    gen_drive_out->theta_d_ist = calculate_theta_d_axis2(ctx, gen_drive_out->theta_ist, params->p2_encoder_delta_k);\n//        calculate_theta_d(ctx, gen_drive_out->theta_ist);\n    gen_drive_out->x_ist = calculate_x(sys_drive_in->Dr_PosIW);\n    gen_drive_out->v_ist = calculate_v(ctx, params, gen_drive_out->x_ist);\n\n    // check if pendulum stays at 180 degree for 100 ms\n    gen_drive_out->theta_180 =\n        get_theta_180(ctx, params, gen_drive_out->theta_ist);\n\n    // check if pendulum stays at same position (delta theta is very low) for\n    // 100 ms\n    gen_drive_out->theta_d_0 =\n        get_theta_d_0(ctx, params, gen_drive_out->theta_d_ist);\n\n    /* save values for the next iteration */\n    ctx->prev_theta = gen_drive_out->theta_ist;\n\n    ctx->prev_x = gen_drive_out->x_ist;\n    ctx->prev_v = gen_drive_out->v_ist;\n}\n"
+  },
+  "branch_vocabulary": [
+    {
+      "id": "35:69:71",
+      "function": "turn_off_with_delay",
+      "label": "turn_off_with_delay:69\u219271"
+    },
+    {
+      "id": "92:51:53",
+      "function": "__fwritex",
+      "label": "__fwritex:51\u219253"
+    },
+    {
+      "id": "22:2283:2738",
+      "function": "tick",
+      "label": "tick:2283\u21922738"
+    },
+    {
+      "id": "37:55:57",
+      "function": "pou_general_machine",
+      "label": "pou_general_machine:55\u219257"
+    },
+    {
+      "id": "37:55:67",
+      "function": "pou_general_machine",
+      "label": "pou_general_machine:55\u219267"
+    },
+    {
+      "id": "22:2368:2738",
+      "function": "tick",
+      "label": "tick:2368\u21922738"
+    },
+    {
+      "id": "35:105:119",
+      "function": "turn_off_with_delay",
+      "label": "turn_off_with_delay:105\u2192119"
+    },
+    {
+      "id": "35:24:46",
+      "function": "turn_off_with_delay",
+      "label": "turn_off_with_delay:24\u219246"
+    },
+    {
+      "id": "35:51:100",
+      "function": "turn_off_with_delay",
+      "label": "turn_off_with_delay:51\u2192100"
+    },
+    {
+      "id": "35:20:22",
+      "function": "turn_off_with_delay",
+      "label": "turn_off_with_delay:20\u219222"
+    },
+    {
+      "id": "34:71:88",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:71\u219288"
+    },
+    {
+      "id": "22:2488:2735",
+      "function": "tick",
+      "label": "tick:2488\u21922735"
+    },
+    {
+      "id": "22:2368:2370",
+      "function": "tick",
+      "label": "tick:2368\u21922370"
+    },
+    {
+      "id": "22:2736:2762",
+      "function": "tick",
+      "label": "tick:2736\u21922762"
+    },
+    {
+      "id": "102:336:351",
+      "function": "printf_core",
+      "label": "printf_core:336\u2192351"
+    },
+    {
+      "id": "102:6767:6782",
+      "function": "printf_core",
+      "label": "printf_core:6767\u21926782"
+    },
+    {
+      "id": "102:7054:7069",
+      "function": "printf_core",
+      "label": "printf_core:7054\u21927069"
+    },
+    {
+      "id": "92:64:84",
+      "function": "__fwritex",
+      "label": "__fwritex:64\u219284"
+    },
+    {
+      "id": "83:86:96",
+      "function": "writev",
+      "label": "writev:86\u219296"
+    },
+    {
+      "id": "84:145:298",
+      "function": "__stdio_write",
+      "label": "__stdio_write:145\u2192298"
+    },
+    {
+      "id": "84:92:94",
+      "function": "__stdio_write",
+      "label": "__stdio_write:92\u219294"
+    },
+    {
+      "id": "83:31:46",
+      "function": "writev",
+      "label": "writev:31\u219246"
+    },
+    {
+      "id": "83:69:71",
+      "function": "writev",
+      "label": "writev:69\u219271"
+    },
+    {
+      "id": "84:107:109",
+      "function": "__stdio_write",
+      "label": "__stdio_write:107\u2192109"
+    },
+    {
+      "id": "101:224:226",
+      "function": "vfprintf",
+      "label": "vfprintf:224\u2192226"
+    },
+    {
+      "id": "37:43:67",
+      "function": "pou_general_machine",
+      "label": "pou_general_machine:43\u219267"
+    },
+    {
+      "id": "35:69:86",
+      "function": "turn_off_with_delay",
+      "label": "turn_off_with_delay:69\u219286"
+    },
+    {
+      "id": "34:71:73",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:71\u219273"
+    },
+    {
+      "id": "108:456:458",
+      "function": "memcpy",
+      "label": "memcpy:456\u2192458"
+    },
+    {
+      "id": "37:43:45",
+      "function": "pou_general_machine",
+      "label": "pou_general_machine:43\u219245"
+    },
+    {
+      "id": "35:55:57",
+      "function": "turn_off_with_delay",
+      "label": "turn_off_with_delay:55\u219257"
+    },
+    {
+      "id": "35:20:46",
+      "function": "turn_off_with_delay",
+      "label": "turn_off_with_delay:20\u219246"
+    },
+    {
+      "id": "35:51:53",
+      "function": "turn_off_with_delay",
+      "label": "turn_off_with_delay:51\u219253"
+    },
+    {
+      "id": "22:2283:2285",
+      "function": "tick",
+      "label": "tick:2283\u21922285"
+    },
+    {
+      "id": "34:57:59",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:57\u219259"
+    },
+    {
+      "id": "108:421:423",
+      "function": "memcpy",
+      "label": "memcpy:421\u2192423"
+    },
+    {
+      "id": "34:24:26",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:24\u219226"
+    },
+    {
+      "id": "34:57:102",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:57\u2192102"
+    },
+    {
+      "id": "34:112:114",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:112\u2192114"
+    },
+    {
+      "id": "34:116:118",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:116\u2192118"
+    },
+    {
+      "id": "108:109:111",
+      "function": "memcpy",
+      "label": "memcpy:109\u2192111"
+    },
+    {
+      "id": "108:146:213",
+      "function": "memcpy",
+      "label": "memcpy:146\u2192213"
+    },
+    {
+      "id": "108:104:106",
+      "function": "memcpy",
+      "label": "memcpy:104\u2192106"
+    },
+    {
+      "id": "34:52:54",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:52\u219254"
+    },
+    {
+      "id": "34:19:46",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:19\u219246"
+    },
+    {
+      "id": "34:112:129",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:112\u2192129"
+    },
+    {
+      "id": "34:52:102",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:52\u2192102"
+    },
+    {
+      "id": "34:24:46",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:24\u219246"
+    },
+    {
+      "id": "34:19:21",
+      "function": "turn_on_with_delay",
+      "label": "turn_on_with_delay:19\u219221"
+    },
+    {
+      "id": "108:386:388",
+      "function": "memcpy",
+      "label": "memcpy:386\u2192388"
+    },
+    {
+      "id": "22:2093:2175",
+      "function": "tick",
+      "label": "tick:2093\u21922175"
+    },
+    {
+      "id": "40:281:316",
+      "function": "pou_lqr_sim",
+      "label": "pou_lqr_sim:281\u2192316"
+    },
+    {
+      "id": "40:44:85",
+      "function": "pou_lqr_sim",
+      "label": "pou_lqr_sim:44\u219285"
+    },
+    {
+      "id": "22:1676:1806",
+      "function": "tick",
+      "label": "tick:1676\u21921806"
+    },
+    {
+      "id": "22:1889:1930",
+      "function": "tick",
+      "label": "tick:1889\u21921930"
+    },
+    {
+      "id": "108:489:491",
+      "function": "memcpy",
+      "label": "memcpy:489\u2192491"
+    },
+    {
+      "id": "33:69:71",
+      "function": "pou_main",
+      "label": "pou_main:69\u219271"
+    },
+    {
+      "id": "33:118:259",
+      "function": "pou_main",
+      "label": "pou_main:118\u2192259"
+    },
+    {
+      "id": "108:772:878",
+      "function": "memcpy",
+      "label": "memcpy:772\u2192878"
+    },
+    {
+      "id": "108:947:949",
+      "function": "memcpy",
+      "label": "memcpy:947\u2192949"
+    },
+    {
+      "id": "108:242:378",
+      "function": "memcpy",
+      "label": "memcpy:242\u2192378"
+    },
+    {
+      "id": "108:236:238",
+      "function": "memcpy",
+      "label": "memcpy:236\u2192238"
+    },
+    {
+      "id": "64:17:22",
+      "function": "fmax",
+      "label": "fmax:17\u219222"
+    },
+    {
+      "id": "63:8:10",
+      "function": "fmin",
+      "label": "fmin:8\u219210"
+    },
+    {
+      "id": "63:17:22",
+      "function": "fmin",
+      "label": "fmin:17\u219222"
+    },
+    {
+      "id": "64:8:10",
+      "function": "fmax",
+      "label": "fmax:8\u219210"
+    },
+    {
+      "id": "108:225:227",
+      "function": "memcpy",
+      "label": "memcpy:225\u2192227"
+    },
+    {
+      "id": "108:489:992",
+      "function": "memcpy",
+      "label": "memcpy:489\u2192992"
+    },
+    {
+      "id": "108:386:412",
+      "function": "memcpy",
+      "label": "memcpy:386\u2192412"
+    },
+    {
+      "id": "108:421:447",
+      "function": "memcpy",
+      "label": "memcpy:421\u2192447"
+    },
+    {
+      "id": "108:456:482",
+      "function": "memcpy",
+      "label": "memcpy:456\u2192482"
+    },
+    {
+      "id": "22:1209:1636",
+      "function": "tick",
+      "label": "tick:1209\u21921636"
+    },
+    {
+      "id": "108:980:982",
+      "function": "memcpy",
+      "label": "memcpy:980\u2192982"
+    },
+    {
+      "id": "108:912:914",
+      "function": "memcpy",
+      "label": "memcpy:912\u2192914"
+    },
+    {
+      "id": "108:104:213",
+      "function": "memcpy",
+      "label": "memcpy:104\u2192213"
+    },
+    {
+      "id": "102:2404:2450",
+      "function": "printf_core",
+      "label": "printf_core:2404\u21922450"
+    },
+    {
+      "id": "108:67:69",
+      "function": "memcpy",
+      "label": "memcpy:67\u219269"
+    },
+    {
+      "id": "108:62:64",
+      "function": "memcpy",
+      "label": "memcpy:62\u219264"
+    },
+    {
+      "id": "102:2447:2406",
+      "function": "printf_core",
+      "label": "printf_core:2447\u21922406"
+    },
+    {
+      "id": "101:224:241",
+      "function": "vfprintf",
+      "label": "vfprintf:224\u2192241"
+    },
+    {
+      "id": "108:67:213",
+      "function": "memcpy",
+      "label": "memcpy:67\u2192213"
+    },
+    {
+      "id": "108:689:691",
+      "function": "memcpy",
+      "label": "memcpy:689\u2192691"
+    },
+    {
+      "id": "108:699:766",
+      "function": "memcpy",
+      "label": "memcpy:699\u2192766"
+    },
+    {
+      "id": "108:62:213",
+      "function": "memcpy",
+      "label": "memcpy:62\u2192213"
+    },
+    {
+      "id": "108:303:378",
+      "function": "memcpy",
+      "label": "memcpy:303\u2192378"
+    },
+    {
+      "id": "108:257:259",
+      "function": "memcpy",
+      "label": "memcpy:257\u2192259"
+    },
+    {
+      "id": "108:236:244",
+      "function": "memcpy",
+      "label": "memcpy:236\u2192244"
+    },
+    {
+      "id": "108:225:504",
+      "function": "memcpy",
+      "label": "memcpy:225\u2192504"
+    },
+    {
+      "id": "108:520:679",
+      "function": "memcpy",
+      "label": "memcpy:520\u2192679"
+    },
+    {
+      "id": "108:980:992",
+      "function": "memcpy",
+      "label": "memcpy:980\u2192992"
+    },
+    {
+      "id": "102:2492:2494",
+      "function": "printf_core",
+      "label": "printf_core:2492\u21922494"
+    },
+    {
+      "id": "102:7024:7026",
+      "function": "printf_core",
+      "label": "printf_core:7024\u21927026"
+    },
+    {
+      "id": "102:2500:2512",
+      "function": "printf_core",
+      "label": "printf_core:2500\u21922512"
+    },
+    {
+      "id": "102:6965:7015",
+      "function": "printf_core",
+      "label": "printf_core:6965\u21927015"
+    },
+    {
+      "id": "109:57:384",
+      "function": "memset",
+      "label": "memset:57\u2192384"
+    },
+    {
+      "id": "109:8:22",
+      "function": "memset",
+      "label": "memset:8\u219222"
+    },
+    {
+      "id": "109:28:30",
+      "function": "memset",
+      "label": "memset:28\u219230"
+    },
+    {
+      "id": "102:6925:6927",
+      "function": "printf_core",
+      "label": "printf_core:6925\u21926927"
+    },
+    {
+      "id": "108:947:973",
+      "function": "memcpy",
+      "label": "memcpy:947\u2192973"
+    },
+    {
+      "id": "108:772:774",
+      "function": "memcpy",
+      "label": "memcpy:772\u2192774"
+    }
+  ],
+  "function_map": {
+    "0": "waxi_service_dlr_factory",
+    "1": "waxi_dlr_factory_open_memory",
+    "10": "__imported_wasi_snapshot_preview1_args_get",
+    "100": "fputs",
+    "101": "vfprintf",
+    "102": "printf_core",
+    "103": "pop_arg",
+    "104": "pad",
+    "105": "long_double_not_supported",
+    "106": "vsnprintf",
+    "107": "sn_write",
+    "108": "memcpy",
+    "109": "memset",
+    "11": "__imported_wasi_snapshot_preview1_args_sizes_get",
+    "110": "strlen",
+    "111": "memchr",
+    "112": "strnlen",
+    "12": "__imported_wasi_snapshot_preview1_clock_time_get",
+    "13": "__imported_wasi_snapshot_preview1_fd_close",
+    "14": "__imported_wasi_snapshot_preview1_fd_fdstat_get",
+    "15": "__imported_wasi_snapshot_preview1_fd_seek",
+    "16": "__imported_wasi_snapshot_preview1_fd_write",
+    "17": "__imported_wasi_snapshot_preview1_proc_exit",
+    "18": "__wasm_call_ctors",
+    "19": "_start",
+    "2": "waxi_dlr_factory_close_memory",
+    "20": "stays_balanced",
+    "21": "execute",
+    "22": "tick",
+    "23": "init",
+    "24": "deinit",
+    "25": "ts2ns",
+    "26": "ethercat_read",
+    "27": "waxi_end_access",
+    "28": "get_nth_bit_in_byte",
+    "29": "ethercat_write",
+    "3": "waxi_dlr_user_begin_access",
+    "30": "log_data",
+    "31": "waxi_end_access",
+    "32": "set_end_of_process_flag",
+    "33": "pou_main",
+    "34": "turn_on_with_delay",
+    "35": "turn_off_with_delay",
+    "36": "pou_general_axis",
+    "37": "pou_general_machine",
+    "38": "pou_general_drive",
+    "39": "pou_standup_rel",
+    "4": "waxi_dlr_user_read_bytes",
+    "40": "pou_lqr_sim",
+    "41": "reset_drive",
+    "42": "pou_drive_control_word",
+    "43": "sys_reset_machine_ouput",
+    "44": "sys_reset_drive_output",
+    "45": "waxi_sdk_log",
+    "46": "waxi_sdk_log_extended",
+    "47": "__clock_gettime",
+    "48": "malloc",
+    "49": "dlmalloc",
+    "5": "waxi_dlr_user_end_access",
+    "50": "free",
+    "51": "dlfree",
+    "52": "calloc",
+    "53": "_Exit",
+    "54": "__main_void",
+    "55": "__wasi_args_get",
+    "56": "__wasi_args_sizes_get",
+    "57": "__wasi_clock_time_get",
+    "58": "__wasi_fd_close",
+    "59": "__wasi_fd_fdstat_get",
+    "6": "waxi_dlr_user_write_bytes",
+    "60": "__wasi_fd_seek",
+    "61": "__wasi_fd_write",
+    "62": "__wasi_proc_exit",
+    "63": "fmin",
+    "64": "fmax",
+    "65": "abort",
+    "66": "sbrk",
+    "67": "__assert_fail",
+    "68": "dummy",
+    "69": "__wasm_call_dtors",
+    "7": "waxi_logging_log",
+    "70": "__cos",
+    "71": "__rem_pio2_large",
+    "72": "__rem_pio2",
+    "73": "__sin",
+    "74": "cos",
+    "75": "__math_divzero",
+    "76": "__math_invalid",
+    "77": "log",
+    "78": "scalbn",
+    "79": "fprintf",
+    "8": "waxi_logging_log_extended",
+    "80": "printf",
+    "81": "close",
+    "82": "__stdio_close",
+    "83": "writev",
+    "84": "__stdio_write",
+    "85": "__lseek",
+    "86": "__stdio_seek",
+    "87": "__isatty",
+    "88": "__stdout_write",
+    "89": "__ofl_lock",
+    "9": "main",
+    "90": "__stdio_exit",
+    "91": "__towrite",
+    "92": "__fwritex",
+    "93": "fwrite",
+    "94": "dummy",
+    "95": "__lctrans",
+    "96": "strerror",
+    "97": "wcrtomb",
+    "98": "wctomb",
+    "99": "frexp",
+    "func_exports": "func_exports",
+    "import_func_count": "import_func_count"
+  },
+  "state_map": {
+    "0": "SWINGUP",
+    "1": "BALANCE",
+    "2": "RESET"
+  },
+  "target_positions": [
+    0.0,
+    0.05,
+    -0.09,
+    0.09
+  ]
+}

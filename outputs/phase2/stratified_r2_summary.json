@@ -1,0 +1,15 @@
+{
+  "n_windows": 137904,
+  "n_branches": 100,
+  "r2_total_mean": 0.724789343816183,
+  "r2_between_mean": 0.14512482789473347,
+  "r2_within_formula_mean": -3.916339285013193,
+  "r2_within_balance_mean": 0.6143321268379812,
+  "r2_fwl_mean": 0.5985558383830157,
+  "frac_within_formula_gt_01": 0.72,
+  "frac_within_formula_gt_02": 0.72,
+  "frac_within_formula_gt_03": 0.72,
+  "frac_within_balance_gt_03": 0.71,
+  "leakage_accuracy": 0.9951342963220792,
+  "chance_accuracy_balance": 0.9428660517461422
+}

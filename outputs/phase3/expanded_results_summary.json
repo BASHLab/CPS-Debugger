@@ -1,0 +1,22 @@
+{
+  "n_branches_evaluated": 30,
+  "within_balance_r2": {
+    "6_run": 0.5604280380971933,
+    "expanded": 0.5688716065129195,
+    "delta": 0.008443568415726133
+  },
+  "cross_run_r2_ridge": {
+    "6_run": -0.03964276171670271,
+    "expanded": -0.011820517752752516,
+    "delta": 0.027822243963950194
+  },
+  "n_runs": {
+    "6_run": 6,
+    "expanded": 12
+  },
+  "n_windows": {
+    "6_run": 137905,
+    "expanded": 431297
+  },
+  "interpretation": "Positive delta = more runs improve results (good for generalization claims). Near-zero delta = results are stable (good for robustness). Negative delta = overfitting to specific runs."
+}

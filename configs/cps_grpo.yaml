@@ -1,0 +1,75 @@
+# CPS Physics-to-Code Reasoning via GRPO (VERL)
+# Novel RLVR application: physical sensor obs → execution trace reasoning
+#
+# Base model: Qwen2.5-Coder-7B-Instruct (swap to 3B for fast iteration)
+# Reward:     scripts/phase2_C2_reward_function.py::compute_score
+#
+# Usage (after `pip install verl`):
+#   python3 -m verl.trainer.main_ppo \
+#       --config-name cps_grpo \
+#       --config-path /home/simran/allspark-data-exploration/CPS-Debugger/configs
+
+data:
+  train_files: /home/simran/allspark-data-exploration/CPS-Debugger/outputs/phase2/sft_train.jsonl
+  val_files:   /home/simran/allspark-data-exploration/CPS-Debugger/outputs/phase2/llm_eval_dataset.jsonl
+  train_batch_size: 64          # Number of prompts per training step
+  max_prompt_length: 3072       # Source code context is large (~150 lines + sensors)
+  max_response_length: 512      # JSON response + reasoning chain
+  # VERL expects each sample to have 'prompt' (list[dict]) and 'reward_model.ground_truth'
+  # Both are provided by phase2_C1_build_sft_dataset.py
+
+actor_rollout_ref:
+  model:
+    path: Qwen/Qwen2.5-Coder-7B-Instruct
+    # Alternative fast-iteration: Qwen/Qwen2.5-Coder-3B-Instruct
+    external_lib: null
+  actor:
+    optim:
+      lr: 1.0e-6          # Low LR to preserve code reasoning ability
+      weight_decay: 0.01
+    ppo_mini_batch_size: 32
+    ppo_micro_batch_size_per_gpu: 4
+    use_kl_loss: true
+    kl_loss_coef: 0.001   # Gentle KL penalty — we want genuine exploration
+    loss_agg_mode: token-mean
+    lr_scheduler_type: cosine
+    lr_warmup_ratio: 0.1
+  rollout:
+    name: vllm
+    temperature: 0.7       # Sample diverse reasoning strategies
+    top_p: 0.95
+    n: 8                   # GRPO group size: 8 completions per prompt
+    gpu_memory_utilization: 0.5
+  ref:
+    fsdp_config:
+      param_offload: true  # Offload ref model to CPU to save GPU memory
+
+custom_reward_function:
+  path: /home/simran/allspark-data-exploration/CPS-Debugger/scripts/phase2_C2_reward_function.py
+  name: compute_score
+
+algorithm:
+  adv_estimator: grpo     # GRPO: advantage = (reward - group_mean) / group_std
+  # No value network needed — pure verifiable rewards
+
+trainer:
+  total_epochs: 3
+  project_name: cps_debugger
+  experiment_name: grpo_physics_to_code_v1
+  logger:
+    - console
+    - wandb
+  n_gpus_per_node: 4      # Adjust to cluster (4 × A100 recommended for 7B)
+  nnodes: 1
+  save_freq: 50            # Save checkpoint every 50 steps
+  test_freq: 25            # Eval on val set every 25 steps
+  default_hdfs_dir: null   # No HDFS; use local path
+  default_local_dir: /home/simran/allspark-data-exploration/CPS-Debugger/outputs/phase2/checkpoints
+
+# Notes on GRPO for this task:
+# - Each physical observation generates 8 candidate reasonings (n=8)
+# - Reward decomposes into verifiable components (state, function, target_x, reasoning quality)
+# - Group advantage normalisation: A_i = (r_i - mean(r)) / std(r)
+# - Loss: policy gradient on tokens with positive advantage
+# - KL penalty prevents catastrophic forgetting of code understanding
+# - Expected: after 1-2 epochs, model should reliably predict state; after 3 epochs, target_x
