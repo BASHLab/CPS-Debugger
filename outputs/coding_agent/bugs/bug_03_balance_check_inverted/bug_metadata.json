@@ -1,0 +1,13 @@
+{
+  "id": "bug_03_balance_check_inverted",
+  "file": "pend_mono/pend_monolithic.c",
+  "description": "Balance confirmation logic inverted. stays_balanced() is fed the negation of su_pndlum_ok, so the system never confirms balance and never starts setpoint tracking.",
+  "category": "logic_fault",
+  "affected_function": "tick",
+  "affected_edges": [
+    "22:2283:2285",
+    "22:2283:2738"
+  ],
+  "difficulty": "easy",
+  "diff": "- already_balanced = stays_balanced(standup_out.su_pndlum_ok);\n+ already_balanced = stays_balanced(!standup_out.su_pndlum_ok);"
+}

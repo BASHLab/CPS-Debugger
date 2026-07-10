@@ -1,0 +1,116 @@
+{
+  "config": {
+    "runs": [
+      "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_09-23-44"
+    ],
+    "split_mode": "random",
+    "test_runs": null,
+    "win_ms": 10,
+    "target": "edges",
+    "topk_edges": 50,
+    "features": "fused",
+    "model": "mlp",
+    "missing_mode": "train_dropout",
+    "test_size": 0.2,
+    "random_state": 0,
+    "threshold": 0.5,
+    "max_iter": 300,
+    "mlp_hidden": 256,
+    "mlp_dropout": 0.2,
+    "mlp_lr": 0.001,
+    "mlp_weight_decay": 0.0001,
+    "mlp_batch_size": 1024,
+    "mlp_epochs": 1,
+    "train_dropout_prob": 0.2,
+    "mlp_use_pos_weight": true,
+    "mlp_max_pos_weight": 20.0,
+    "mlp_grad_clip_norm": 1.0
+  },
+  "split": {
+    "split_mode": "random",
+    "train_windows": 2761,
+    "test_windows": 691,
+    "train_runs": [
+      "2025-03-13_09-23-44"
+    ],
+    "test_runs": [
+      "2025-03-13_09-23-44"
+    ]
+  },
+  "dataset_stats": {
+    "num_runs": 1,
+    "num_windows": 3452,
+    "num_features": 20,
+    "label_cardinality": 47.90150637311703,
+    "target_type": "edges",
+    "top_labels": [
+      {
+        "label": "102->92",
+        "pretty_label": "printf_core(102)->__fwritex(92)",
+        "count": 3451
+      },
+      {
+        "label": "29->45",
+        "pretty_label": "ethercat_write(29)->waxi_sdk_log(45)",
+        "count": 3451
+      },
+      {
+        "label": "101->91",
+        "pretty_label": "vfprintf(101)->__towrite(91)",
+        "count": 3451
+      },
+      {
+        "label": "45->106",
+        "pretty_label": "waxi_sdk_log(45)->vsnprintf(106)",
+        "count": 3451
+      },
+      {
+        "label": "107->108",
+        "pretty_label": "sn_write(107)->memcpy(108)",
+        "count": 3451
+      },
+      {
+        "label": "106->109",
+        "pretty_label": "vsnprintf(106)->memset(109)",
+        "count": 3451
+      },
+      {
+        "label": "101->107",
+        "pretty_label": "vfprintf(101)->sn_write(107)",
+        "count": 3451
+      },
+      {
+        "label": "92->108",
+        "pretty_label": "__fwritex(92)->memcpy(108)",
+        "count": 3451
+      },
+      {
+        "label": "27->5",
+        "pretty_label": "waxi_end_access(27)->waxi_dlr_user_end_access(5)",
+        "count": 3451
+      },
+      {
+        "label": "29->6",
+        "pretty_label": "ethercat_write(29)->waxi_dlr_user_write_bytes(6)",
+        "count": 3451
+      }
+    ]
+  },
+  "label_space": {
+    "labels_total": 50,
+    "labels_used_for_training": 50
+  },
+  "metrics": {
+    "micro_f1": 0.9671981499513145,
+    "macro_f1": 0.9547131248471235,
+    "precision_at_5": 0.9994211287988423,
+    "precision_at_10": 0.9991316931982633
+  },
+  "missing_metrics": {
+    "micro_f1_missing_syslog": 0.9463686622879555,
+    "macro_f1_missing_syslog": 0.8745918805134428,
+    "micro_f1_missing_datalayer": 0.9691898060098897,
+    "macro_f1_missing_datalayer": 0.9585830054977245
+  },
+  "per_class_f1_top10": []
+}

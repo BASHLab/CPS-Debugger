@@ -1,0 +1,13 @@
+{
+  "id": "bug_02_force_formula_sign",
+  "file": "pendulum_controller/lqrsim.c",
+  "description": "Force formula sign reverted to the original (non-Pittsburgh) convention. The Pittsburgh pendulum has reversed angle sign, so the original formula produces wrong correction direction.",
+  "category": "logic_fault",
+  "affected_function": "pou_lqr_sim",
+  "affected_edges": [
+    "40:44:85",
+    "40:281:316"
+  ],
+  "difficulty": "medium",
+  "diff": "- F_lqr = A1 + A2 + A3 + A4;\n+ F_lqr = A1 + A2 - A3 - A4;"
+}

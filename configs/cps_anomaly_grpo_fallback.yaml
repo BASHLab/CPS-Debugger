@@ -1,0 +1,79 @@
+# CPS Anomaly Explanation GRPO — FALLBACK config
+# Use if primary OOMs: halved batch sizes, LoRA rank=8, group_size=4
+# Model: Qwen/Qwen2.5-Coder-7B-Instruct (or 3B if 7B OOMs even here)
+# GPUs: 4x A100 (long partition)
+
+data:
+  train_files: /home/simran/allspark-data-exploration/CPS-Debugger/outputs/phase3/grpo_train.jsonl
+  val_files:   /home/simran/allspark-data-exploration/CPS-Debugger/outputs/phase3/anomaly_eval_dataset.jsonl
+  prompt_key:  prompt
+  response_key: response
+  max_prompt_length: 1536
+  max_response_length: 512
+
+actor_rollout_ref:
+  model:
+    path: Qwen/Qwen2.5-Coder-7B-Instruct
+    enable_gradient_checkpointing: true
+    override_config:
+      attn_implementation: sdpa
+  actor:
+    optim:
+      lr: 1.0e-6
+      lr_scheduler: cosine
+      warmup_steps: 50
+    ppo_mini_batch_size: 16
+    ppo_micro_batch_size: 2
+    grad_clip: 1.0
+    lora:
+      enabled: true
+      rank: 8
+      alpha: 16
+      target_modules: ["q_proj", "v_proj", "k_proj", "o_proj"]
+    param_offload: true
+  rollout:
+    name: hf
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 0
+    log_prob_micro_batch_size: 2
+    tensor_model_parallel_size: 1
+  ref:
+    log_prob_micro_batch_size: 2
+
+critic:
+  model:
+    path: Qwen/Qwen2.5-Coder-7B-Instruct
+    override_config:
+      attn_implementation: sdpa
+  optim:
+    lr: 1.0e-5
+  ppo_micro_batch_size: 2
+  lora:
+    enabled: true
+    rank: 8
+    alpha: 16
+
+reward_model:
+  reward_fn_path: /home/simran/allspark-data-exploration/CPS-Debugger/scripts/phase3_reward_anomaly.py
+  reward_fn:      compute_score
+
+algorithm:
+  gamma: 1.0
+  lam: 1.0
+  adv_estimator: grpo
+  kl_ctrl:
+    type: fixed
+    kl_coef: 0.001
+  grpo_group_size: 4
+
+trainer:
+  project_name:       cps_debugger
+  experiment_name:    anomaly_grpo_v1_fallback
+  n_gpus_per_node:    4
+  nnodes:             1
+  total_epochs:       3
+  save_freq:          1
+  val_freq:           1
+  default_local_dir:  /home/simran/allspark-data-exploration/CPS-Debugger/outputs/phase3/checkpoints/anomaly_grpo_v1_fallback
+  logger:             ["console", "wandb"]

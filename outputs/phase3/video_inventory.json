@@ -1,0 +1,94 @@
+{
+  "n_runs_with_video": 3,
+  "best_dino_candidate": "2025-01-24_16-42-06",
+  "best_candidate_info": {
+    "run_id": "2025-01-24_16-42-06",
+    "mp4_files": [
+      {
+        "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-01-24_16-42-06/output_video.mp4",
+        "n_frames": -1,
+        "fps": -1
+      },
+      {
+        "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-01-24_16-42-06/output_video.mp4",
+        "n_frames": -1,
+        "fps": -1
+      }
+    ],
+    "total_frames": 0,
+    "fps": -1.0,
+    "duration_s": -1.0,
+    "has_datalayer": false,
+    "has_trace": false,
+    "datalayer_rows": 0,
+    "trace_rows": 0
+  },
+  "all_runs": [
+    {
+      "run_id": "2025-01-24_16-42-06",
+      "mp4_files": [
+        {
+          "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-01-24_16-42-06/output_video.mp4",
+          "n_frames": -1,
+          "fps": -1
+        },
+        {
+          "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-01-24_16-42-06/output_video.mp4",
+          "n_frames": -1,
+          "fps": -1
+        }
+      ],
+      "total_frames": 0,
+      "fps": -1.0,
+      "duration_s": -1.0,
+      "has_datalayer": false,
+      "has_trace": false,
+      "datalayer_rows": 0,
+      "trace_rows": 0
+    },
+    {
+      "run_id": "2025-02-04_09-33-16-videos",
+      "mp4_files": [
+        {
+          "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-02-04_09-33-16-videos/output_video.mp4",
+          "n_frames": -1,
+          "fps": -1
+        },
+        {
+          "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-02-04_09-33-16-videos/output_video.mp4",
+          "n_frames": -1,
+          "fps": -1
+        }
+      ],
+      "total_frames": 0,
+      "fps": -1.0,
+      "duration_s": -1.0,
+      "has_datalayer": false,
+      "has_trace": false,
+      "datalayer_rows": 0,
+      "trace_rows": 0
+    },
+    {
+      "run_id": "2025-02-04_10-19-24-videos",
+      "mp4_files": [
+        {
+          "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-02-04_10-19-24-videos/output_video.mp4",
+          "n_frames": -1,
+          "fps": -1
+        },
+        {
+          "path": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-02-04_10-19-24-videos/output_video.mp4",
+          "n_frames": -1,
+          "fps": -1
+        }
+      ],
+      "total_frames": 0,
+      "fps": -1.0,
+      "duration_s": -1.0,
+      "has_datalayer": false,
+      "has_trace": false,
+      "datalayer_rows": 0,
+      "trace_rows": 0
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "bug_01_soft_lqr_threshold",
+  "file": "pendulum_controller/lqrsim.c",
+  "description": "Soft LQR gains activate after only 50ms instead of 500ms. The controller switches to deadzoned gains (K=100,54,274,36) almost immediately, losing the initial aggressive stabilisation.",
+  "category": "parameter_fault",
+  "affected_function": "pou_lqr_sim",
+  "affected_edges": [
+    "40:44:85"
+  ],
+  "difficulty": "easy",
+  "diff": "- if (params->counter_goodrange >= 500) {\n+ if (params->counter_goodrange >= 50) {"
+}

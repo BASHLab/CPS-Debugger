@@ -1,0 +1,191 @@
+{
+  "gpu_config": {
+    "partition": "long",
+    "n_gpus": 4,
+    "gpu_type": "A100",
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+    "use_lora": true,
+    "lora_rank": 16,
+    "group_size": 8,
+    "batch_size": 32,
+    "grad_accum": 2,
+    "mem_gb": 128,
+    "time": "2-00:00:00",
+    "time_limit": "7-00:00:00"
+  },
+  "yaml_path": "/home/simran/allspark-data-exploration/CPS-Debugger/configs/cps_anomaly_grpo.yaml",
+  "slurm_path": "/home/simran/allspark-data-exploration/CPS-Debugger/slurm/submit_anomaly_grpo.sh",
+  "submit_command": "sbatch /home/simran/allspark-data-exploration/CPS-Debugger/slurm/submit_anomaly_grpo.sh",
+  "partitions_found": [
+    {
+      "partition": "short",
+      "gres": "gpu:RTX6000B:2",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "3"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:tesla:2",
+      "mem_mb": "92000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:tesla:4",
+      "mem_mb": "192000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:A100:4",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "3"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:L40S:2(S:0-1)",
+      "mem_mb": "1024000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "short",
+      "gres": "(null)",
+      "mem_mb": "192000+",
+      "available": "up",
+      "n_nodes": "39"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:A100:2(S:0-1)",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:tesla:10(S:0-3)",
+      "mem_mb": "384000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:nvidia:2(S:0-1)",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:H100:4(S:0-1)",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "2"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:L40S:4(S:0-1)",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "12"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:H200:8(S:0-1)",
+      "mem_mb": "1536000",
+      "available": "up",
+      "n_nodes": "2"
+    },
+    {
+      "partition": "short",
+      "gres": "gpu:A100:4(S:0-1)",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "2"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:RTX6000B:2",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "3"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:tesla:2",
+      "mem_mb": "92000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:tesla:4",
+      "mem_mb": "192000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:A100:4",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "3"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:L40S:2(S:0-1)",
+      "mem_mb": "1024000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "long",
+      "gres": "(null)",
+      "mem_mb": "192000+",
+      "available": "up",
+      "n_nodes": "39"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:A100:2(S:0-1)",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:tesla:10(S:0-3)",
+      "mem_mb": "384000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:nvidia:2(S:0-1)",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "1"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:L40S:4(S:0-1)",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "12"
+    },
+    {
+      "partition": "long",
+      "gres": "gpu:A100:4(S:0-1)",
+      "mem_mb": "512000",
+      "available": "up",
+      "n_nodes": "2"
+    }
+  ],
+  "fallback_config": "configs/cps_anomaly_grpo_fallback.yaml",
+  "fallback_description": "LoRA rank=8, group_size=4, max_prompt_length=1536, param_offload=true"
+}

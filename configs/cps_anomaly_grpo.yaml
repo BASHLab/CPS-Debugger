@@ -1,0 +1,79 @@
+# CPS Anomaly Explanation GRPO Configuration
+# Model: Qwen/Qwen2.5-Coder-7B-Instruct
+# GPUs: 4x A100 (long partition, 7-day limit)
+# Fine-tune: LoRA rank=16 (safe for both 40GB and 80GB A100)
+
+data:
+  train_files: /home/simran/allspark-data-exploration/CPS-Debugger/outputs/phase3/grpo_train.jsonl
+  val_files:   /home/simran/allspark-data-exploration/CPS-Debugger/outputs/phase3/anomaly_eval_dataset.jsonl
+  prompt_key:  prompt
+  response_key: response
+  max_prompt_length: 2048
+  max_response_length: 512
+
+actor_rollout_ref:
+  model:
+    path: Qwen/Qwen2.5-Coder-7B-Instruct
+    enable_gradient_checkpointing: true
+    override_config:
+      attn_implementation: sdpa
+  actor:
+    optim:
+      lr: 1.0e-6
+      lr_scheduler: cosine
+      warmup_steps: 50
+    ppo_mini_batch_size: 32
+    ppo_micro_batch_size: 4
+    grad_clip: 1.0
+    lora:
+      enabled: true
+      rank: 16
+      alpha: 32
+      target_modules: ["q_proj", "v_proj", "k_proj", "o_proj"]
+    param_offload: false
+  rollout:
+    name: hf
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 0
+    log_prob_micro_batch_size: 4
+    tensor_model_parallel_size: 1
+  ref:
+    log_prob_micro_batch_size: 4
+
+critic:
+  model:
+    path: Qwen/Qwen2.5-Coder-7B-Instruct
+    override_config:
+      attn_implementation: sdpa
+  optim:
+    lr: 1.0e-5
+  ppo_micro_batch_size: 4
+  lora:
+    enabled: true
+    rank: 16
+    alpha: 32
+
+reward_model:
+  reward_fn_path: /home/simran/allspark-data-exploration/CPS-Debugger/scripts/phase3_reward_anomaly.py
+  reward_fn:      compute_score
+
+algorithm:
+  gamma: 1.0
+  lam: 1.0
+  adv_estimator: grpo
+  kl_ctrl:
+    type: fixed
+    kl_coef: 0.001
+  grpo_group_size: 8
+
+trainer:
+  project_name:       cps_debugger
+  experiment_name:    anomaly_grpo_v1
+  n_gpus_per_node:    4
+  nnodes:             1
+  total_epochs:       3
+  save_freq:          1
+  val_freq:           1
+  default_local_dir:  /home/simran/allspark-data-exploration/CPS-Debugger/outputs/phase3/checkpoints/anomaly_grpo_v1
+  logger:             ["console", "wandb"]

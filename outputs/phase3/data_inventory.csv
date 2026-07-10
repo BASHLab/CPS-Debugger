@@ -1,0 +1,20 @@
+run_id,path,has_datalayer,has_trace,has_syslog,has_audio,has_video,has_code,n_datalayer_rows,n_trace_rows,status,size_mb
+2025-03-13_09-23-44,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_09-23-44,True,True,True,False,False,True,34490,34512,COMPLETE,
+2025-03-13_11-12-19,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_11-12-19,True,True,True,False,False,True,186059,186081,COMPLETE,
+2025-03-13_13-31-50,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_13-31-50,True,True,True,False,False,True,69636,69658,COMPLETE,
+2025-03-13_14-32-27,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_14-32-27,True,True,True,False,False,True,111142,111164,COMPLETE,
+2025-03-17_10-06-14,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-17_10-06-14,True,True,True,False,False,True,490051,490073,COMPLETE,
+2025-03-17_10-21-19,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-17_10-21-19,True,True,True,False,False,True,487603,487625,COMPLETE,
+2025-03-17_10-51-58,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-17_10-51-58,True,True,True,True,True,True,485376,485398,COMPLETE+ALL,
+2025-03-17_11-06-39,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-17_11-06-39,True,True,True,True,True,True,494600,494622,COMPLETE+ALL,
+2025-03-18_12-39-10,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-18_12-39-10,True,True,True,True,True,True,572563,505175,COMPLETE+ALL,
+2025-03-19_10-05-47,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-19_10-05-47,True,True,True,True,True,True,487586,487608,COMPLETE+ALL,
+2025-03-19_10-20-35,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-19_10-20-35,True,True,True,True,True,True,480431,488453,COMPLETE+ALL,
+2025-03-19_10-37-56,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-19_10-37-56,True,True,True,True,True,True,480703,488725,COMPLETE+ALL,
+2025-03-19_10-54-34,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-19_10-54-34,False,False,True,True,True,True,0,0,PARTIAL,
+2025-01-24_16-42-06,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-01-24_16-42-06,False,False,False,False,True,False,0,0,PARTIAL,
+2025,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025,False,False,False,False,True,False,0,0,VIDEO_ONLY,
+2025-02-04_09-33-16,/home/simran/allspark-data-exploration/CPS-Debugger/data/2025-02-04_09-33-16,False,True,True,False,False,False,0,36050,PARTIAL_NO_DATALAYER,
+2025-01-13_10-58-23,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025-01-13_10-58-23.tar.gz,False,True,True,True,False,True,0,0,UNEXTRACTED,402.4
+2025-03-17_10-36-44,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025/2025-03-17_10-36-44.tar.gz,,,,,,,0,0,TARBALL_ERROR: Compressed file ended before the end-of-stream marker was reached,973.1
+2025.zip_ARCHIVE,/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/2025.zip,,,,,,,0,0,ARCHIVE_NEEDS_EXTRACTION_17.4GB,

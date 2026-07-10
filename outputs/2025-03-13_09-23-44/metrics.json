@@ -1,0 +1,16 @@
+{
+  "run": "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_09-23-44",
+  "win_us": 10000,
+  "label_mode": "triplets",
+  "vocab_path": "/home/simran/allspark-data-exploration/eda/triplet_to_idx.json",
+  "vocab_format": "py_literal",
+  "num_windows": 3452,
+  "num_features": 14,
+  "num_labels_total": 407,
+  "num_labels_used": 339,
+  "train_size": 2761,
+  "test_size": 691,
+  "micro_f1": 0.9704409265718629,
+  "macro_f1": 0.7871873571809074,
+  "micro_f1_missing_syslog": 0.8052299192496445
+}

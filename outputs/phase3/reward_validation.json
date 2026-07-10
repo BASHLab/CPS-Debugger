@@ -1,0 +1,12 @@
+{
+  "n_examples_scored": 194,
+  "mean_reward": 0.6142675257731959,
+  "std_reward": 0.22348312749583912,
+  "min_reward": 0.1667,
+  "max_reward": 1.0,
+  "frac_gt_05": 0.37628865979381443,
+  "frac_gt_075": 0.20618556701030927,
+  "frac_zero": 0.0,
+  "assessment": "SUITABLE: Reward distribution appropriate for RL training",
+  "reward_fn_path": "/home/simran/allspark-data-exploration/CPS-Debugger/scripts/phase3_reward_anomaly.py"
+}

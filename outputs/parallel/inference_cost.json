@@ -1,0 +1,23 @@
+{
+  "rf_single_window_ms": 3.313746379921213,
+  "rf_batch_100_per_window_ms": 0.05255643794080243,
+  "consistency_score_ms": 3.322941343067214,
+  "full_pipeline_ms": 3.401667149970308,
+  "feasibility": "real_time",
+  "feasibility_note": "Full pipeline (3.40ms) < analysis window (10ms). Real-time monitoring is feasible on a single CPU core. The system analyzes every 10ms window with 3\u00d7 margin.",
+  "llm_anomaly_explanation": {
+    "model": "claude-haiku-4-5-20251001",
+    "estimated_latency_ms": 5000,
+    "note": "LLM invoked ONLY on anomaly detection events (not every window). At p99 FPR <1%, this means ~few calls per hour in steady-state operation. Estimated from zero-shot eval timing: ~5s per call (API latency dominant). Acceptable for human-in-the-loop debugging workflow.",
+    "cost_per_call_usd_approx": 0.001
+  },
+  "system_context": {
+    "controller_cycle_ms": 1,
+    "analysis_window_ms": 10,
+    "rf_inference_ms": 3.313746379921213,
+    "full_pipeline_ms": 3.401667149970308,
+    "ratio_pipeline_to_window": 0.3401667149970308,
+    "n_windows_per_second": 100.0,
+    "n_rf_predictions_per_sec": 301.77324555048654
+  }
+}

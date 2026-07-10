@@ -1,0 +1,21 @@
+{
+  "thresholds": {
+    "p95": 17.61463202200195,
+    "p99": 22.619904132767292
+  },
+  "fpr_pct": {
+    "p95_immediate": 5.152097458395272,
+    "p99_immediate": 1.2109785722055038,
+    "p95_3win": 1.0478227765490737,
+    "p99_3win": 0.11602189913346145
+  },
+  "fp_near_transitions": {
+    "boundary_ms": 50,
+    "pct_near_p95": 0.0,
+    "pct_near_p99": 0.0
+  },
+  "fpr_by_state": {
+    "BALANCE": 5.152097458395272
+  },
+  "summary": "At p95, the steady-state FPR is 5.15%. At p99, it is 1.21%. 0% of false positives occur within 50ms of a state transition. With a 3-window confirmation requirement, FPR drops to 1.05% (p95) and 0.12% (p99)."
+}

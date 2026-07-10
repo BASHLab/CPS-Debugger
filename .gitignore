@@ -1,0 +1,126 @@
+# ─── Datasets and bulk artifacts ──────────────────────────────────────────
+# Top-level data
+data/
+*/data/
+**/train_data/
+**/train_data_*/
+
+# Sensor embeddings (10s of GB each)
+**/sensor_embeddings/
+**/sensor_embeddings_*/
+
+# Model checkpoints, training artifacts, video tensors
+outputs/fm_candidates/models/
+outputs/fm_candidates/video/
+outputs/video_assessment/
+outputs/experiments/
+
+# Phase-2/3 LLM training artifacts (large jsonl / parquet)
+outputs/phase2/sft_*.jsonl
+outputs/phase2/llm_eval_dataset.jsonl
+outputs/phase3/grpo_train.jsonl
+outputs/phase3/aligned_dataset*.parquet
+outputs/FULL_ASSESSMENT_DOCUMENT.pdf
+
+# Raw / processed traces and per-tick parquets
+processed_trace*/
+processed_trace.csv
+**/processed_trace.csv
+
+# Common large file extensions
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.parquet
+*.bin
+*.h5
+*.hdf5
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.wasm
+*.wat
+
+# Generated plots / videos / audio
+*.mp4
+*.avi
+*.mov
+*.wav
+*.flac
+*.png
+*.jpg
+*.jpeg
+# (re-allow specific small figures via per-folder `!` rules below if needed)
+
+# ─── Logs ─────────────────────────────────────────────────────────────────
+logs/
+*.log
+*.err
+*.out
+**/slurm_*.log
+**/slurm-*.out
+**/slurm/*.err
+outputs/slurm/
+
+# ─── LLM datasets / artifacts ─────────────────────────────────────────────
+*.jsonl
+*.pdf
+
+# ─── Bulk CSVs (sequences, sweeps, full inventories) ──────────────────────
+**/seq_length_dist.csv
+**/all_edges_inventory.csv
+**/aspk_eda/*.csv
+
+# ─── Python caches ────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ─── Nested-repo backups (preserved from local working state) ─────────────
+**/.git.local-bak/
+.git.local-bak/
+
+# ─── Editor / OS ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ─── Virtual envs ────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ─── Generated-doc artifacts ─────────────────────────────────────
+**/RARE_STATE_BRIEF.md
+**/ENCODER_WITHIN_STATE_BRIEF.md
+**/wave3_diagnostics_summary.md
+**/followup_diagnostics_summary.md
+**/diagnostics_summary.md
+**/diag5_vocab_structure.md
+**/diag6_iteration_channel.md
+**/probe_w3_1_branch_inventory.md
+**/probe_w3_*.json
+**/diag*.json
+**/wave4_*.json
+**/wave4_state_decomp.json
+
+# ─── Misc per-session scratch ─────────────────────────────────────────────
+.cache/
+tmp/
+*.tmp
+
+# ─── Top-level working notes (not for sharing) ────────────────────────────
+EXPERIMENT_REPORT.md
+PROGRESS_STATE.md
+RESEARCH_RESULTS.md

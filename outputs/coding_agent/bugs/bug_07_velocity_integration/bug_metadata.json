@@ -1,0 +1,12 @@
+{
+  "id": "bug_07_velocity_integration",
+  "file": "pendulum_controller/lqrsim.c",
+  "description": "Velocity integration divides by mass but bug multiplies. Velocity commands are ~6x too large (mass=2.3+3.9=6.2), causing immediate saturation and loss of control.",
+  "category": "logic_fault",
+  "affected_function": "pou_lqr_sim",
+  "affected_edges": [
+    "40:281:316"
+  ],
+  "difficulty": "hard",
+  "diff": "- lqr_sim_out->SI_v_soll = lqr_sim_out->SI_v_soll_old + lqr_sim_out->LQ_F_soll * (cycletime_secs / (3.9 + params->m_axis));\n+ lqr_sim_out->SI_v_soll = lqr_sim_out->SI_v_soll_old + lqr_sim_out->LQ_F_soll * (cycletime_secs * (3.9 + params->m_axis));"
+}

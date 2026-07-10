@@ -1,0 +1,149 @@
+{
+  "mutants": [
+    {
+      "name": "balanced_counter",
+      "detected": true,
+      "frac": 0.09,
+      "first_tick": 8515,
+      "gt": [
+        20
+      ],
+      "origin": [
+        20,
+        22
+      ],
+      "top": [
+        20,
+        22
+      ],
+      "hit1_origin": true,
+      "hit1_max": true,
+      "hitk": true,
+      "site": "stays_balanced (counter bound)"
+    },
+    {
+      "name": "setpoint_counter",
+      "detected": true,
+      "frac": 0.04033333333333333,
+      "first_tick": 13979,
+      "gt": [
+        22,
+        102
+      ],
+      "origin": [
+        22
+      ],
+      "top": [
+        22
+      ],
+      "hit1_origin": true,
+      "hit1_max": true,
+      "hitk": true,
+      "site": "tick, setpoint cycling"
+    },
+    {
+      "name": "counter_goodrange",
+      "detected": true,
+      "frac": 0.02666666666666667,
+      "first_tick": 8465,
+      "gt": [
+        40
+      ],
+      "origin": [
+        40
+      ],
+      "top": [
+        40
+      ],
+      "hit1_origin": true,
+      "hit1_max": true,
+      "hitk": true,
+      "site": "pou_lqr_sim goodrange gate"
+    },
+    {
+      "name": "deadband_v",
+      "detected": false,
+      "frac": 0.0,
+      "first_tick": -1,
+      "gt": [
+        40
+      ],
+      "origin": [],
+      "top": [],
+      "hit1_origin": false,
+      "hit1_max": false,
+      "hitk": false,
+      "site": "pou_lqr_sim velocity deadband"
+    },
+    {
+      "name": "theta_cap",
+      "detected": true,
+      "frac": 0.031133333333333332,
+      "first_tick": 8326,
+      "gt": [
+        39
+      ],
+      "origin": [
+        39
+      ],
+      "top": [
+        40,
+        20,
+        77,
+        39
+      ],
+      "hit1_origin": true,
+      "hit1_max": false,
+      "hitk": true,
+      "site": "pou_standup_rel angle test"
+    },
+    {
+      "name": "x_safety",
+      "detected": true,
+      "frac": 0.1426,
+      "first_tick": 0,
+      "gt": [
+        22
+      ],
+      "origin": [
+        72,
+        74,
+        39,
+        77
+      ],
+      "top": [
+        72,
+        77,
+        74,
+        39
+      ],
+      "hit1_origin": false,
+      "hit1_max": false,
+      "hitk": false,
+      "site": "tick x-safety abort"
+    },
+    {
+      "name": "Kx",
+      "detected": false,
+      "frac": 0.0,
+      "first_tick": -1,
+      "gt": [
+        40
+      ],
+      "origin": [],
+      "top": [],
+      "hit1_origin": false,
+      "hit1_max": false,
+      "hitk": false,
+      "site": "pou_lqr_sim position gain"
+    }
+  ],
+  "summary": {
+    "n": 7,
+    "detected": 5,
+    "hit1_origin": 4,
+    "hit1_max": 3,
+    "hitk": 4,
+    "exercised": 36
+  }
+}

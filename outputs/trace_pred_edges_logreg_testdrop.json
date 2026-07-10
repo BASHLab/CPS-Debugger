@@ -1,0 +1,101 @@
+{
+  "config": {
+    "runs": [
+      "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-13_09-23-44"
+    ],
+    "win_ms": 10,
+    "target": "edges",
+    "topk_edges": 100,
+    "features": "fused",
+    "model": "logreg",
+    "missing_mode": "test_drop",
+    "test_size": 0.2,
+    "random_state": 0,
+    "threshold": 0.5,
+    "max_iter": 300,
+    "mlp_hidden": 256,
+    "mlp_dropout": 0.2,
+    "mlp_lr": 0.001,
+    "mlp_batch_size": 256,
+    "mlp_epochs": 25,
+    "train_dropout_prob": 0.2
+  },
+  "split": {
+    "train_windows": 2761,
+    "test_windows": 691
+  },
+  "dataset_stats": {
+    "num_runs": 1,
+    "num_windows": 3452,
+    "num_features": 20,
+    "label_cardinality": 51.673232908458864,
+    "target_type": "edges",
+    "top_labels": [
+      {
+        "label": "29->4",
+        "pretty_label": "ethercat_write(29)->waxi_dlr_user_read_bytes(4)",
+        "count": 3451
+      },
+      {
+        "label": "27->5",
+        "pretty_label": "waxi_end_access(27)->waxi_dlr_user_end_access(5)",
+        "count": 3451
+      },
+      {
+        "label": "101->107",
+        "pretty_label": "vfprintf(101)->sn_write(107)",
+        "count": 3451
+      },
+      {
+        "label": "106->101",
+        "pretty_label": "vsnprintf(106)->vfprintf(101)",
+        "count": 3451
+      },
+      {
+        "label": "29->3",
+        "pretty_label": "ethercat_write(29)->waxi_dlr_user_begin_access(3)",
+        "count": 3451
+      },
+      {
+        "label": "102->92",
+        "pretty_label": "printf_core(102)->__fwritex(92)",
+        "count": 3451
+      },
+      {
+        "label": "101->102",
+        "pretty_label": "vfprintf(101)->printf_core(102)",
+        "count": 3451
+      },
+      {
+        "label": "45->109",
+        "pretty_label": "waxi_sdk_log(45)->memset(109)",
+        "count": 3451
+      },
+      {
+        "label": "107->108",
+        "pretty_label": "sn_write(107)->memcpy(108)",
+        "count": 3451
+      },
+      {
+        "label": "45->7",
+        "pretty_label": "waxi_sdk_log(45)->waxi_logging_log(7)",
+        "count": 3451
+      }
+    ]
+  },
+  "label_space": {
+    "labels_total": 93,
+    "labels_used_for_training": 67
+  },
+  "metrics": {
+    "micro_f1": 0.9773656396450294,
+    "macro_f1": 0.8974529116157166,
+    "precision_at_5": 0.9982633863965267,
+    "precision_at_10": 0.9984081041968161
+  },
+  "missing_metrics": {
+    "micro_f1_missing_syslog": 0.1319179862135794,
+    "micro_f1_missing_datalayer": 0.9731033892013821
+  },
+  "per_class_f1_top10": []
+}
