@@ -15,6 +15,15 @@ word, so the controller executes realistic paths.
 
 Output: outputs/sil_demo/overhead_results.json
 """
+import os as _os
+from pathlib import Path as _Path
+
+# Roots. Override with environment variables; defaults assume this checkout and
+# the dataset release unpacked as CPSD_DATA (see outputs/sil_demo/README.md).
+REPO = _Path(_os.environ.get("CPSD_REPO", _Path(__file__).resolve().parents[2]))
+CPSD_DATA = _Path(_os.environ.get("CPSD_DATA", REPO / "data"))
+CPSD_CAPTURE = _Path(_os.environ.get("CPSD_CAPTURE", CPSD_DATA / "captures"))
+
 import argparse
 import json
 import math
@@ -27,10 +36,8 @@ import numpy as np
 from wasmtime import Config, Engine, Func, FuncType, Linker, Module, Store, \
     ValType, WasiConfig
 
-CAPTURE = Path("/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs"
-               "/extracted/2025-03-17_10-36-44/code")
-DATA = Path("/home/simran/allspark-data-exploration/CPS-Debugger"
-            "/outputs/fm_candidates/train_data_full")
+CAPTURE = CPSD_CAPTURE / "2025-03-17_10-36-44" / "code"
+DATA = CPSD_DATA
 SESSION = "2025-03-25_13-39-06"
 
 REGION_SIZES = {

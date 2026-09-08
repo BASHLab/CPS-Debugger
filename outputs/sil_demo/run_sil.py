@@ -16,6 +16,15 @@ Two entry points:
 All heavy runs go through sbatch per repo convention; smoke() is light
 (wasmtime, no torch) and may run inline for the go/no-go.
 """
+import os as _os
+from pathlib import Path as _Path
+
+# Roots. Override with environment variables; defaults assume this checkout and
+# the dataset release unpacked as CPSD_DATA (see outputs/sil_demo/README.md).
+REPO = _Path(_os.environ.get("CPSD_REPO", _Path(__file__).resolve().parents[2]))
+CPSD_DATA = _Path(_os.environ.get("CPSD_DATA", REPO / "data"))
+CPSD_CAPTURE = _Path(_os.environ.get("CPSD_CAPTURE", CPSD_DATA / "captures"))
+
 import argparse
 import json
 import math
@@ -26,10 +35,8 @@ from pathlib import Path
 from plant import CartPole, PlantParams, PlantState
 from waxi_host import WaxiHost
 
-CAPTURE = Path("/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs"
-               "/extracted/2025-03-17_10-36-44/code")
-VOCAB = Path("/home/simran/allspark-data-exploration/CPS-Debugger"
-             "/outputs/fm_candidates/train_data_full/auto_token_mapping.json")
+CAPTURE = CPSD_CAPTURE / "2025-03-17_10-36-44" / "code"
+VOCAB = CPSD_DATA / "auto_token_mapping.json"
 
 
 def _drive(host, plant, n_ticks, collect_trace=False):

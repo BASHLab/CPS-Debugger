@@ -13,6 +13,15 @@ Both binaries start from the same fresh state and receive the identical real
 sensor sequence, so any trace difference is attributable to the mutation, not
 to initial-state drift. (Matching the ORIGINAL captured trace is a separate,
 stricter fidelity check that additionally requires replaying a whole session
+import os as _os
+from pathlib import Path as _Path
+
+# Roots. Override with environment variables; defaults assume this checkout and
+# the dataset release unpacked as CPSD_DATA (see outputs/sil_demo/README.md).
+REPO = _Path(_os.environ.get("CPSD_REPO", _Path(__file__).resolve().parents[2]))
+CPSD_DATA = _Path(_os.environ.get("CPSD_DATA", REPO / "data"))
+CPSD_CAPTURE = _Path(_os.environ.get("CPSD_CAPTURE", CPSD_DATA / "captures"))
+
 from its swing-up onset so the controller's counters track the real run.)
 
 CPU-only (wasmtime + pyarrow); no torch.
@@ -29,9 +38,9 @@ from waxi_host import WaxiHost
 from plant import (COUNTS_PER_RAD, COUNTS_PER_REV, ENC_MASK, POS_COUNTS_PER_M,
                    STATUS_WORD, OFF_ENCODER, OFF_STATUS, OFF_POSIW)
 
-DATA = "/home/simran/allspark-data-exploration/CPS-Debugger/outputs/fm_candidates/train_data_full"
-CODE = "/home/simran/allspark-data-exploration/Pittsburgh-pendulum-datalogs/extracted/2025-03-17_10-36-44/code"
-VOCAB = "/home/simran/allspark-data-exploration/CPS-Debugger/outputs/fm_candidates/train_data_full/auto_token_mapping.json"
+DATA = str(CPSD_DATA)
+CODE = str(CPSD_CAPTURE / "2025-03-17_10-36-44" / "code")
+VOCAB = str(CPSD_DATA / "auto_token_mapping.json")
 
 
 def encode_input(angle, x):

@@ -46,7 +46,7 @@ counter trips (~150 ticks into balance) and the divergence localizes to
 
 ## Run
 ```
-PY=/home/simran/.conda/envs/slimllm/bin/python   # wasmtime + pyarrow; no torch
+PY=python3   # needs wasmtime + pyarrow; no torch
 $PY patch_wasm.py <module.wasm> /tmp/mutant.wasm --bug balanced_counter
 $PY replay.py --mutant /tmp/mutant.wasm --ticks 9000 --start 0
 ```

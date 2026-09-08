@@ -22,6 +22,15 @@ to it within a plausible range.
 
 CPU-only (numpy + pyarrow); no torch. Run inline or via sbatch.
 """
+import os as _os
+from pathlib import Path as _Path
+
+# Roots. Override with environment variables; defaults assume this checkout and
+# the dataset release unpacked as CPSD_DATA (see outputs/sil_demo/README.md).
+REPO = _Path(_os.environ.get("CPSD_REPO", _Path(__file__).resolve().parents[2]))
+CPSD_DATA = _Path(_os.environ.get("CPSD_DATA", REPO / "data"))
+CPSD_CAPTURE = _Path(_os.environ.get("CPSD_CAPTURE", CPSD_DATA / "captures"))
+
 import argparse
 import glob
 import json
@@ -30,7 +39,7 @@ from pathlib import Path
 import numpy as np
 import pyarrow.parquet as pq
 
-DATA = "/home/simran/allspark-data-exploration/CPS-Debugger/outputs/fm_candidates/train_data_full"
+DATA = str(CPSD_DATA)
 OUT = Path(__file__).parent / "plant_params.json"
 DT = 1.0e-3  # 1 kHz control tick
 

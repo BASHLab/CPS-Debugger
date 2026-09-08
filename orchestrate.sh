@@ -5,7 +5,7 @@
 # parallelizing independent tasks within each wave.
 #
 # Usage:
-#   cd /home/simran/allspark-data-exploration/CPS-Debugger
+#   cd <this checkout>
 #   bash orchestrate.sh
 #
 # To skip a wave (e.g. if Wave 1 already ran):
@@ -13,12 +13,11 @@
 
 set -euo pipefail
 
-REPO=/home/simran/allspark-data-exploration/CPS-Debugger
-PYTHON=/home/simran/.conda/envs/slimllm/bin/python3
+REPO="${CPSD_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+PYTHON="${CPSD_PYTHON:-python3}"
 LOGS=$REPO/logs
 mkdir -p "$LOGS" "$REPO/outputs/phase3" "$REPO/outputs/slurm"
 
-export PATH="/home/simran/.conda/envs/slimllm/bin:$PATH"
 
 echo "=================================================="
 echo "  CPS-Debugger Phase 3 Orchestrator"
@@ -138,7 +137,6 @@ print(d.get('best_dino_candidate', ''))" 2>/dev/null || echo "")
 #SBATCH --mem=32G
 #SBATCH --time=4:00:00
 #SBATCH --output=$LOGS/dino_extract_%j.log
-export PATH="/home/simran/.conda/envs/slimllm/bin:$PATH"
 cd $REPO
 $PYTHON -u scripts/task_2_1b_dino_extract.py --run_id $BEST_RUN
 SLURMEOF

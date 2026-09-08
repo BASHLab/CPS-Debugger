@@ -17,6 +17,15 @@ negative -- the complement the physical/encoder detector covers.
 
 CPU-only (wasmtime + pyarrow). Writes results/corpus_replay.json.
 """
+import os as _os
+from pathlib import Path as _Path
+
+# Roots. Override with environment variables; defaults assume this checkout and
+# the dataset release unpacked as CPSD_DATA (see outputs/sil_demo/README.md).
+REPO = _Path(_os.environ.get("CPSD_REPO", _Path(__file__).resolve().parents[2]))
+CPSD_DATA = _Path(_os.environ.get("CPSD_DATA", REPO / "data"))
+CPSD_CAPTURE = _Path(_os.environ.get("CPSD_CAPTURE", CPSD_DATA / "captures"))
+
 import json
 import struct
 from pathlib import Path
@@ -27,7 +36,7 @@ from replay import load_session, replay, compare, CODE, DATA
 
 OUT = Path(__file__).parent / "results"
 LAYOUT = f"{CODE}/layout.json"
-NAMES = "/home/simran/allspark-data-exploration/CPS-Debugger/outputs/fm_trace_eda/func_id_to_name.json"
+NAMES = str(REPO / "outputs/fm_trace_eda/func_id_to_name.json")
 
 # (name, kind, old, new, human-readable site)
 CORPUS = [
