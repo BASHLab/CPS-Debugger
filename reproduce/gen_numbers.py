@@ -502,12 +502,19 @@ def main():
                   ("Smol", "repair_study_smol.json")]
         CONDS = [("LT", True, True), ("Tonly", False, True),
                  ("Lonly", True, False), ("None", False, False)]
+        _by_cond = {ctag: [] for ctag, _, _ in CONDS}
         for mtag, fname in MODELS:
             md = _load(SILDIR / fname)
             for ctag, loc, trace in CONDS:
                 v = (sum(c["n_verified"] for row in md for c in row["conditions"]
                          if c["loc"] == loc and c["trace"] == trace) if md else None)
                 put(f"RepairAtt{mtag}{ctag}", v, "{:d}")
+                if v is not None:
+                    _by_cond[ctag].append(v)
+        # Cross-model ranges the results paragraph quotes, so it cannot go stale.
+        for ctag, vals in _by_cond.items():
+            put(f"RepairRange{ctag}",
+                f"{min(vals)} to {max(vals)}" if vals else None, "{}")
     else:
         for nm in ("RepairStudyN", "RepairSeeds", "RepairSeedTotal",
                    "RepairHeuristic", "RepairExactFull", "RepairExactTraceNoLoc",
@@ -677,7 +684,8 @@ def main():
         put(name, None)
 
     # ── Mutation corpus over replay (M; tab:localization) ───────────────
-    cor = _load(REPO / "outputs/sil_demo/results/corpus_replay.json")
+    cor = _load(Path("/home/simran/allspark-data-exploration/CPS-Debugger/"
+                     "outputs/sil_demo/results/corpus_replay.json"))
     cs = cor.get("summary", {}) if cor else {}
     for macro, key in (("CorpusN", "n"), ("CorpusDetected", "detected"),
                        ("CorpusHitOrigin", "hit1_origin"),

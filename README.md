@@ -374,9 +374,19 @@ For fresh upstream clones, delete those subtrees and `git clone` the
 originals at the corresponding HEAD.
 
 ## Release notes
+The SLURM wrappers and many exploratory scripts under `scripts/`,
+`slurm/`, `outputs/fm_candidates/` and `configs/` carry absolute paths from
+the cluster this work was run on and will not resolve elsewhere; adapt them to
+your own layout. The reproduction entry point `reproduce/gen_numbers.py` does
+not, and takes `CPSD_REPO` if you want to point it somewhere else.
+
 This is the public code release for the IAAI-27 paper. Meta's V-JEPA2 (used by
 one optional video-assessment baseline) is not vendored here; install it
 separately. The paired sensor-and-trace dataset, with the controller source,
-binaries, and program-counter layout, is linked from the paper and released
-separately (it is not stored in git). The proprietary vendor instrumentation
+binaries, and program-counter layout, is published as release assets rather
+than in git, at
+<https://github.com/BASHLab/CPS-Debugger/releases/tag/dataset-v1>: 15 sessions
+as `<session>.parquet` (sensors plus per-tick trace) and `<session>.tar.zst`
+(the raw trace records), with `manifest.csv`, the token mappings, the
+program-counter-to-source layout, and `controller_code.tar.gz`. The proprietary vendor instrumentation
 that produced the ground-truth traces is not part of the release.
